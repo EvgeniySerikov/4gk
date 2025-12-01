@@ -19,6 +19,17 @@ export interface Game {
 }
 
 export type QuestionTag = 'BLACK_BOX' | 'BLITZ' | 'SUPER_BLITZ';
+export type ExpertStatus = 'NOVICE' | 'MASTER' | 'LEGEND';
+
+export interface UserProfile {
+  id: string;
+  email?: string;
+  fullName: string;
+  telegram: string;
+  avatarUrl: string;
+  expertStatus: ExpertStatus;
+  isExpert: boolean;
+}
 
 export interface Question {
   id: string;
@@ -26,14 +37,20 @@ export interface Question {
   authorName: string;
   authorEmail: string;
   telegram?: string; // Логин телеграм
+  authorAvatarUrl?: string; // Аватарка автора на момент загрузки
+  
   questionText: string;
   answerText: string;
-  mediaUrl?: string; 
+  imageUrls?: string[]; // Ссылки на прикрепленные фото
+  
   status: QuestionStatus;
   submissionDate: number;
   feedback?: string;
+  
   gameId?: string; // ID игры, к которой привязан вопрос
   tags?: QuestionTag[];
+  
+  isAnsweredCorrectly?: boolean; // Взят знатоками (true) или нет (false)
 }
 
 export interface Notification {
