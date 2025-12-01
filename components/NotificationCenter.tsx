@@ -1,20 +1,30 @@
 
 import React, { useEffect, useState } from 'react';
-import { getNotifications, getQuestions, subscribeToStorage } from '../services/storageService';
+import { getNotifications, getQuestions } from '../services/storageService';
 import { Notification, Question, QuestionStatus } from '../types';
-import { Mail, Clock } from 'lucide-react';
+import { Mail, Clock, Loader2 } from 'lucide-react';
+import { isSupabaseConfigured } from '../services/supabaseClient';
 
 export const NotificationCenter: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [myQuestions, setMyQuestions] = useState<Question[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const load = () => {
-      setNotifications(getNotifications());
-      setMyQuestions(getQuestions()); // Real app would filter by user ID
+    const load = async () => {
+      if (isSupabaseConfigured()) {
+        setIsLoading(true);
+        const [nData, qData] = await Promise.all([getNotifications(), getQuestions()]);
+        setNotifications(nData);
+        setMyQuestions(qData);
+        setIsLoading(false);
+      } else {
+        setIsLoading(false);
+      }
     };
     load();
-    return subscribeToStorage(load);
+    const interval = setInterval(load, 30000); // Poll
+    return () => clearInterval(interval);
   }, []);
 
   const getStatusColor = (status: QuestionStatus) => {
@@ -40,14 +50,18 @@ export const NotificationCenter: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return <div className="flex justify-center mt-20 text-white"><Loader2 className="animate-spin" /></div>;
+  }
+
   return (
     <div className="max-w-4xl mx-auto mt-8 px-4 grid grid-cols-1 md:grid-cols-3 gap-8">
       {/* Left Column: My Questions Status */}
       <div className="md:col-span-1">
-        <h3 className="text-xl font-serif font-bold text-white mb-4">Мои вопросы</h3>
+        <h3 className="text-xl font-serif font-bold text-white mb-4">Все вопросы</h3>
         <div className="space-y-3">
           {myQuestions.length === 0 ? (
-            <p className="text-gray-500 text-sm">Вы еще не отправляли вопросы.</p>
+            <p className="text-gray-500 text-sm">Нет вопросов.</p>
           ) : (
             myQuestions.map(q => (
               <div key={q.id} className="bg-owl-800 p-3 rounded-lg border border-white/5">
@@ -66,14 +80,14 @@ export const NotificationCenter: React.FC = () => {
       {/* Right Column: Simulated Inbox */}
       <div className="md:col-span-2">
         <h3 className="text-xl font-serif font-bold text-white mb-4">
-          Центр Уведомлений
+          Лента событий
         </h3>
         
         <div className="space-y-4">
           {notifications.length === 0 ? (
             <div className="text-center py-10 bg-owl-800 rounded-lg border border-white/5 text-gray-500">
               <Mail className="mx-auto mb-2 opacity-50" size={32} />
-              <p>Нет новых уведомлений</p>
+              <p>Нет событий</p>
             </div>
           ) : (
             notifications.map(n => (
@@ -81,7 +95,7 @@ export const NotificationCenter: React.FC = () => {
                 <div className="p-1 bg-owl-800" />
                 <div className="p-4">
                   <div className="flex items-center gap-2 mb-2 text-gray-500 text-xs uppercase tracking-wide font-bold">
-                    <><Mail size={14} className="text-owl-800" /> Email</>
+                    <><Mail size={14} className="text-owl-800" /> System</>
                     <span className="ml-auto font-normal normal-case flex items-center gap-1">
                       <Clock size={12} />
                       {new Date(n.date).toLocaleTimeString()}

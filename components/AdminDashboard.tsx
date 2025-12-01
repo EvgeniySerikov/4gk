@@ -1,56 +1,52 @@
 
 import React, { useEffect, useState } from 'react';
-import { getQuestions, updateQuestionStatus, subscribeToStorage, saveSettings, getSettings, getGames, saveGame, updateQuestionData } from '../services/storageService';
+import { getQuestions, updateQuestionStatus, getGames, saveGame, updateQuestionData } from '../services/storageService';
 import { Question, QuestionStatus, Game, QuestionTag } from '../types';
-import { Check, X, Settings, Save, Mail, AlertTriangle, Copy, ExternalLink, Key, Plus, Folder, Calendar, Box, Zap, Flame } from 'lucide-react';
+import { Check, X, Settings, Folder, Box, Zap, Flame, Loader2, RefreshCw } from 'lucide-react';
+import { isSupabaseConfigured } from '../services/supabaseClient';
 
 export const AdminDashboard: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [games, setGames] = useState<Game[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isConfigured, setIsConfigured] = useState(true);
   
   // Filter States
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'ALL'>('ALL');
   const [gameFilter, setGameFilter] = useState<string | 'ALL'>('ALL'); // Game ID
   
   // UI States
-  const [showSettings, setShowSettings] = useState(false);
   const [showGameModal, setShowGameModal] = useState(false);
   const [newGameName, setNewGameName] = useState('');
-  
-  // Settings Inputs
-  const [serviceId, setServiceId] = useState('');
-  const [templateId, setTemplateId] = useState('');
-  const [publicKey, setPublicKey] = useState('');
 
-  useEffect(() => {
-    const load = () => {
-      setQuestions(getQuestions());
-      setGames(getGames());
-      const settings = getSettings();
-      setServiceId(settings.emailJsServiceId);
-      setTemplateId(settings.emailJsTemplateId);
-      setPublicKey(settings.emailJsPublicKey);
-    };
-    load();
-    return subscribeToStorage(load);
-  }, []);
-
-  const handleCreateGame = () => {
-    if (!newGameName.trim()) return;
-    const game = saveGame(newGameName);
-    setGames(prev => [game, ...prev]);
-    setNewGameName('');
-    setShowGameModal(false);
+  const loadData = async () => {
+    setIsLoading(true);
+    if (!isSupabaseConfigured()) {
+      setIsConfigured(false);
+      setIsLoading(false);
+      return;
+    }
+    const [qData, gData] = await Promise.all([getQuestions(), getGames()]);
+    setQuestions(qData);
+    setGames(gData);
+    setIsLoading(false);
   };
 
-  const handleSaveSettings = () => {
-    saveSettings({ 
-      emailJsServiceId: serviceId,
-      emailJsTemplateId: templateId,
-      emailJsPublicKey: publicKey
-    });
-    setShowSettings(false);
-    alert('Настройки EmailJS сохранены.');
+  useEffect(() => {
+    loadData();
+    // Set up a poller to refresh data every 30 seconds (simple realtime alternative)
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleCreateGame = async () => {
+    if (!newGameName.trim()) return;
+    const game = await saveGame(newGameName);
+    if (game) {
+      setGames(prev => [game, ...prev]);
+      setNewGameName('');
+      setShowGameModal(false);
+    }
   };
 
   const handleStatusChange = async (id: string, status: QuestionStatus) => {
@@ -60,11 +56,17 @@ export const AdminDashboard: React.FC = () => {
       if (reason) feedback = reason;
       else return; // Cancel if no reason given
     }
+    
+    // Optimistic update
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, status, feedback } : q));
+    
     await updateQuestionStatus(id, status, feedback);
+    loadData(); // Refresh to ensure sync
   };
 
   const handleAssignGame = (q: Question, gameId: string) => {
     const updated = { ...q, gameId: gameId === 'NONE' ? undefined : gameId };
+    setQuestions(prev => prev.map(item => item.id === q.id ? updated : item)); // Optimistic
     updateQuestionData(updated);
   };
 
@@ -78,7 +80,9 @@ export const AdminDashboard: React.FC = () => {
       newTags = [...currentTags, tag];
     }
     
-    updateQuestionData({ ...q, tags: newTags });
+    const updated = { ...q, tags: newTags };
+    setQuestions(prev => prev.map(item => item.id === q.id ? updated : item)); // Optimistic
+    updateQuestionData(updated);
   };
 
   // Filter Logic
@@ -88,31 +92,44 @@ export const AdminDashboard: React.FC = () => {
     return matchesStatus && matchesGame;
   });
 
+  if (!isConfigured) {
+    return (
+      <div className="max-w-2xl mx-auto mt-20 p-8 bg-owl-800 border border-red-500/30 rounded-xl text-center">
+        <h2 className="text-2xl font-bold text-white mb-4">База данных не подключена</h2>
+        <p className="text-gray-300 mb-6">
+          Чтобы приложение работало в облаке, откройте файл <code>config.ts</code> и вставьте туда ключи от Supabase.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto mt-8 px-4 pb-20">
       
       {/* --- HEADER --- */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <h2 className="text-3xl font-serif font-bold text-gold-500">Кабинет Ведущего</h2>
+        <h2 className="text-3xl font-serif font-bold text-gold-500 flex items-center gap-3">
+          Кабинет Ведущего
+          {isLoading && <Loader2 className="animate-spin text-gray-500" size={20} />}
+        </h2>
         <div className="flex gap-3">
+          <button 
+             onClick={loadData}
+             className="flex items-center gap-2 bg-owl-800 border border-white/10 text-gray-400 px-4 py-2 rounded-lg hover:text-white transition"
+             title="Обновить данные"
+          >
+            <RefreshCw size={18} />
+          </button>
           <button 
              onClick={() => setShowGameModal(true)}
              className="flex items-center gap-2 bg-owl-800 border border-gold-500/30 text-gold-500 px-4 py-2 rounded-lg hover:bg-owl-900 transition"
           >
             <Folder size={18} /> Игры
           </button>
-          <button 
-            onClick={() => setShowSettings(!showSettings)}
-            className={`p-2 rounded-lg border transition ${showSettings ? 'bg-gold-600 text-owl-900 border-gold-500' : 'bg-owl-800 border-white/10 text-gray-400 hover:text-gold-500'}`}
-          >
-            <Settings size={20} />
-          </button>
         </div>
       </div>
 
       {/* --- MODALS --- */}
-      
-      {/* Game Creation Modal */}
       {showGameModal && (
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
           <div className="bg-owl-800 border border-white/10 rounded-xl p-6 max-w-md w-full shadow-2xl">
@@ -133,31 +150,8 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Settings Panel */}
-      {showSettings && (
-        <div className="bg-owl-800 border border-gold-500/30 p-6 rounded-xl mb-8 shadow-2xl animate-in slide-in-from-top-4">
-          <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-            <Mail size={18} className="text-gold-500" />
-            Настройка EmailJS
-          </h3>
-          <div className="bg-red-900/20 border border-red-500/40 p-4 rounded-lg mb-6 text-sm text-red-100">
-             <p>Обязательно добавьте <code>{'{{to_email}}'}</code> в поле "To Email" и <code>{'{{from_name}}'}</code> в поле "From Name" в настройках шаблона на сайте EmailJS.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-             <input type="text" placeholder="Service ID" className="bg-owl-900 border border-white/10 rounded p-2 text-white" value={serviceId} onChange={e => setServiceId(e.target.value)} />
-             <input type="text" placeholder="Template ID" className="bg-owl-900 border border-white/10 rounded p-2 text-white" value={templateId} onChange={e => setTemplateId(e.target.value)} />
-             <input type="password" placeholder="Public Key" className="bg-owl-900 border border-white/10 rounded p-2 text-white" value={publicKey} onChange={e => setPublicKey(e.target.value)} />
-          </div>
-          <button onClick={handleSaveSettings} className="w-full bg-gold-600 text-owl-900 py-3 rounded-lg font-bold hover:bg-gold-500 flex items-center justify-center gap-2">
-            <Save size={20} /> Сохранить ключи
-          </button>
-        </div>
-      )}
-
       {/* --- FILTERS --- */}
       <div className="flex flex-col xl:flex-row gap-4 mb-8 bg-owl-900/50 p-4 rounded-xl border border-white/5">
-        
-        {/* Status Filter */}
         <div className="flex flex-wrap gap-2">
            <button onClick={() => setStatusFilter('ALL')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${statusFilter === 'ALL' ? 'bg-white text-owl-900' : 'bg-owl-800 text-gray-400 hover:text-white'}`}>Все</button>
            <button onClick={() => setStatusFilter(QuestionStatus.PENDING)} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${statusFilter === QuestionStatus.PENDING ? 'bg-yellow-600 text-white' : 'bg-owl-800 text-gray-400'}`}>Новые</button>
@@ -168,7 +162,6 @@ export const AdminDashboard: React.FC = () => {
            <button onClick={() => setStatusFilter(QuestionStatus.REJECTED)} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${statusFilter === QuestionStatus.REJECTED ? 'bg-red-900 text-red-200' : 'bg-owl-800 text-gray-400'}`}>Отказ</button>
         </div>
 
-        {/* Game Filter */}
         <div className="xl:ml-auto flex items-center gap-2">
           <span className="text-gray-500 text-sm">Фильтр по игре:</span>
           <select 
@@ -189,7 +182,7 @@ export const AdminDashboard: React.FC = () => {
       <div className="grid gap-6">
         {filteredQuestions.length === 0 ? (
           <div className="text-center py-20 text-gray-500 border border-dashed border-white/10 rounded-xl">
-            Вопросов с выбранными параметрами не найдено.
+            {isLoading ? "Загрузка данных..." : "Вопросов с выбранными параметрами не найдено."}
           </div>
         ) : (
           filteredQuestions.map(q => (
@@ -228,7 +221,6 @@ export const AdminDashboard: React.FC = () => {
                   
                   <div className="flex flex-col items-end gap-2">
                      <span className="text-xs text-gray-500">{new Date(q.submissionDate).toLocaleDateString('ru-RU')}</span>
-                     {/* Game Selector */}
                      {q.status !== QuestionStatus.PENDING && q.status !== QuestionStatus.REJECTED && (
                        <select 
                          className="bg-owl-900 text-xs text-gold-500 border border-gold-500/30 rounded px-2 py-1 outline-none"
@@ -252,7 +244,6 @@ export const AdminDashboard: React.FC = () => {
                 {/* Controls */}
                 <div className="flex flex-wrap gap-2 pt-4 border-t border-white/5 items-center">
                   
-                  {/* Tags Controls (Only for Approved/Selected) */}
                   {(q.status === QuestionStatus.APPROVED || q.status === QuestionStatus.SELECTED) && (
                     <div className="flex gap-1 mr-4 border-r border-white/10 pr-4">
                        <button onClick={() => toggleTag(q, 'BLACK_BOX')} className={`p-1.5 rounded transition ${q.tags?.includes('BLACK_BOX') ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`} title="Черный ящик"><Box size={16}/></button>
@@ -261,7 +252,6 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Flow Buttons */}
                   {q.status === QuestionStatus.PENDING && (
                     <>
                       <button onClick={() => handleStatusChange(q.id, QuestionStatus.APPROVED)} className="flex items-center gap-1 px-3 py-1.5 rounded bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-600/30 text-sm">
@@ -290,7 +280,6 @@ export const AdminDashboard: React.FC = () => {
                     </>
                   )}
                   
-                  {/* Revert option for Played questions if mistake made */}
                   {q.status === QuestionStatus.PLAYED && (
                      <button onClick={() => handleStatusChange(q.id, QuestionStatus.SELECTED)} className="ml-auto text-xs text-gray-500 hover:text-white underline">
                         Вернуть в игру

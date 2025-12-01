@@ -5,8 +5,9 @@ import { ViewerForm } from './components/ViewerForm';
 import { AdminDashboard } from './components/AdminDashboard';
 import { NotificationCenter } from './components/NotificationCenter';
 import { Landing } from './components/Landing';
-import { getNotifications, subscribeToStorage } from './services/storageService';
+import { getNotifications } from './services/storageService';
 import { UserRole } from './types';
+import { isSupabaseConfigured } from './services/supabaseClient';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>('GUEST');
@@ -14,11 +15,16 @@ const App: React.FC = () => {
   const [notificationCount, setNotificationCount] = useState(0);
 
   useEffect(() => {
-    const updateCount = () => {
-      setNotificationCount(getNotifications().length);
+    const updateCount = async () => {
+      if (isSupabaseConfigured()) {
+        const notifs = await getNotifications();
+        setNotificationCount(notifs.length);
+      }
     };
     updateCount();
-    return subscribeToStorage(updateCount);
+    // Poll for updates every 60s
+    const i = setInterval(updateCount, 60000);
+    return () => clearInterval(i);
   }, []);
 
   const handleLogin = (newRole: UserRole) => {
@@ -54,9 +60,6 @@ const App: React.FC = () => {
         {role === 'VIEWER' && view === 'notifications' && <NotificationCenter />}
         
         {role === 'ADMIN' && view === 'admin' && <AdminDashboard />}
-        
-        {/* Redirects/Fallbacks if needed */}
-        {role === 'ADMIN' && view !== 'admin' && <div className="text-center text-gray-500 mt-20">Выберите раздел в меню</div>}
       </main>
 
       <footer className="fixed bottom-0 w-full py-4 text-center text-gray-600 text-sm bg-owl-900 border-t border-white/5 pointer-events-none">

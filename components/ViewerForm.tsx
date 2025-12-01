@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { saveQuestion } from '../services/storageService';
-import { Question, QuestionStatus } from '../types';
 import { Send, Loader2 } from 'lucide-react';
+import { isSupabaseConfigured } from '../services/supabaseClient';
 
 export const ViewerForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -15,30 +15,37 @@ export const ViewerForm: React.FC = () => {
     answerText: ''
   });
 
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="max-w-2xl mx-auto mt-10 p-8 bg-owl-800 rounded-xl border border-red-500/30 text-center">
+        <h3 className="text-xl text-white mb-2">Техническое обслуживание</h3>
+        <p className="text-gray-400">Система приема вопросов временно недоступна. Пожалуйста, сообщите администратору.</p>
+      </div>
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Create Question Object directly without AI
-      const newQuestion: Question = {
-        id: crypto.randomUUID(),
-        ...formData,
-        status: QuestionStatus.PENDING,
-        submissionDate: Date.now()
-      };
-
-      // Save (and send auto-email)
-      await saveQuestion(newQuestion);
-      
-      setSuccess(true);
-      setFormData({
-        authorName: '',
-        authorEmail: '',
-        questionText: '',
-        answerText: ''
+      // Save directly (logic moved to storageService)
+      const result = await saveQuestion({
+        ...formData
       });
-      setTimeout(() => setSuccess(false), 5000);
+      
+      if (result) {
+        setSuccess(true);
+        setFormData({
+          authorName: '',
+          authorEmail: '',
+          questionText: '',
+          answerText: ''
+        });
+        setTimeout(() => setSuccess(false), 8000);
+      } else {
+        alert("Ошибка связи с сервером. Попробуйте позже.");
+      }
     } catch (error) {
       console.error(error);
       alert('Ошибка при отправке. Пожалуйста, попробуйте снова.');
