@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Loader2, User, UserPlus, CheckCircle } from 'lucide-react';
+import { Loader2, User, UserPlus, CheckCircle, AlertCircle } from 'lucide-react';
 
 export const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -32,12 +32,12 @@ export const Auth: React.FC = () => {
           email, 
           password,
           options: {
-            // Важно: перенаправляем пользователя обратно на текущий домен после клика в письме
+            // Для локальных тестов и превью лучше явно указывать куда возвращаться
             emailRedirectTo: window.location.origin 
           }
         });
         if (error) throw error;
-        setSuccessMsg("Регистрация успешна! На вашу почту отправлено письмо со ссылкой для подтверждения.");
+        setSuccessMsg("Мы отправили письмо с ссылкой для входа на вашу почту.");
       }
     } catch (err: any) {
       setError(err.message || 'Ошибка авторизации');
@@ -52,10 +52,15 @@ export const Auth: React.FC = () => {
         <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-green-400">
           <CheckCircle size={32} />
         </div>
-        <h2 className="text-2xl font-serif text-white mb-4">Проверьте почту</h2>
-        <p className="text-gray-300 mb-6">
-          {successMsg}
-        </p>
+        <h2 className="text-2xl font-serif text-white mb-4">Почти готово!</h2>
+        <div className="text-gray-300 mb-6 space-y-4 text-sm">
+          <p className="text-base font-medium text-white">{successMsg}</p>
+          <div className="bg-yellow-900/30 border border-yellow-700/50 p-3 rounded text-yellow-200 flex gap-2 text-left">
+            <AlertCircle className="shrink-0" size={18} />
+            <span>Если письма нет во "Входящих", обязательно проверьте папку <strong>"Спам"</strong> или "Промоакции".</span>
+          </div>
+          <p>После подтверждения почты вернитесь сюда и войдите в аккаунт.</p>
+        </div>
         <button 
           onClick={() => { setIsLogin(true); setSuccessMsg(null); }}
           className="text-gold-500 hover:text-white transition underline"
@@ -94,6 +99,7 @@ export const Auth: React.FC = () => {
           <input
             type="password"
             required
+            minLength={6}
             className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 outline-none"
             value={password}
             onChange={e => setPassword(e.target.value)}

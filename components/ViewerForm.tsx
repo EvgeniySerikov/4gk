@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { saveQuestion } from '../services/storageService';
 import { Send, Loader2 } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/supabaseClient';
@@ -21,6 +21,13 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userId, userEmail, onSuc
     questionText: '',
     answerText: ''
   });
+
+  // Sync email if it loads later
+  useEffect(() => {
+    if (userEmail) {
+      setFormData(prev => ({ ...prev, authorEmail: userEmail }));
+    }
+  }, [userEmail]);
 
   if (!isSupabaseConfigured()) {
     return (
@@ -70,7 +77,7 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userId, userEmail, onSuc
       {success ? (
         <div className="bg-green-500/20 border border-green-500 text-green-200 p-6 rounded-lg text-center animate-pulse">
           <h3 className="text-xl font-bold mb-2">Вопрос успешно отправлен!</h3>
-          <p>Мы отправили подтверждение на ваш Email.</p>
+          <p>Вы можете следить за его статусом в разделе "История".</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -91,7 +98,8 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userId, userEmail, onSuc
               <input
                 required
                 type="email"
-                className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 outline-none transition"
+                disabled={!!userEmail} // Disable if logged in
+                className={`w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white outline-none transition ${userEmail ? 'opacity-50 cursor-not-allowed' : 'focus:border-gold-500'}`}
                 placeholder="ivan@example.com"
                 value={formData.authorEmail}
                 onChange={e => setFormData({...formData, authorEmail: e.target.value})}
@@ -111,6 +119,7 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userId, userEmail, onSuc
                 onChange={e => setFormData({...formData, telegram: e.target.value.replace('@', '')})}
               />
             </div>
+            <p className="text-xs text-gray-500 mt-1">Необязательно, но поможет нам быстрее связаться с вами.</p>
           </div>
 
           <div>
