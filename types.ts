@@ -22,8 +22,10 @@ export type QuestionTag = 'BLACK_BOX' | 'BLITZ' | 'SUPER_BLITZ';
 
 export interface Question {
   id: string;
+  userId?: string; // ID зарегистрированного пользователя
   authorName: string;
   authorEmail: string;
+  telegram?: string; // Логин телеграм
   questionText: string;
   answerText: string;
   mediaUrl?: string; 
@@ -47,6 +49,11 @@ export interface AppSettings {
   emailJsServiceId: string;
   emailJsTemplateId: string;
   emailJsPublicKey: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
 }
 
 export type UserRole = 'GUEST' | 'VIEWER' | 'ADMIN';

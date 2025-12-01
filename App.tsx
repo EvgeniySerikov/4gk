@@ -1,65 +1,88 @@
 
 import React, { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
-import { ViewerForm } from './components/ViewerForm';
 import { AdminDashboard } from './components/AdminDashboard';
-import { NotificationCenter } from './components/NotificationCenter';
 import { Landing } from './components/Landing';
-import { getNotifications } from './services/storageService';
 import { UserRole } from './types';
-import { isSupabaseConfigured } from './services/supabaseClient';
+import { supabase, isSupabaseConfigured } from './services/supabaseClient';
+import { Auth } from './components/Auth';
+import { ViewerDashboard } from './components/ViewerDashboard';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>('GUEST');
   const [view, setView] = useState<'viewer' | 'admin' | 'notifications'>('viewer');
-  const [notificationCount, setNotificationCount] = useState(0);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
+  // Auth State Listener
   useEffect(() => {
-    const updateCount = async () => {
-      if (isSupabaseConfigured()) {
-        const notifs = await getNotifications();
-        setNotificationCount(notifs.length);
+    if (!isSupabaseConfigured()) {
+      setLoading(false);
+      return;
+    }
+
+    supabase!.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        setRole('VIEWER'); // Default role after login
       }
-    };
-    updateCount();
-    // Poll for updates every 60s
-    const i = setInterval(updateCount, 60000);
-    return () => clearInterval(i);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase!.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        setRole('VIEWER');
+      } else if (role !== 'ADMIN') { // Don't kick admin out on page refresh if session logic differs
+        setRole('GUEST');
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogin = (newRole: UserRole) => {
-    setRole(newRole);
-    if (newRole === 'ADMIN') {
-      setView('admin');
-    } else {
-      setView('viewer');
-    }
+  const handleAdminLogin = () => {
+    setRole('ADMIN');
+    setView('admin');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (role === 'VIEWER') {
+      await supabase?.auth.signOut();
+    }
     setRole('GUEST');
     setView('viewer');
+    setUser(null);
   };
 
+  if (loading) return <div className="min-h-screen bg-owl-900" />;
+
+  // 1. Landing Page (Guest)
   if (role === 'GUEST') {
-    return <Landing onLogin={handleLogin} />;
+    return <Landing onAdminLogin={handleAdminLogin} onViewerLogin={() => { /* Handled by Auth component inside Landing logic update below */ }} />;
   }
+
+  // 2. Auth Screen (If user clicked "Viewer" but not logged in)
+  // Actually, let's make Landing switch to Auth mode.
+  // We'll modify this structure slightly:
 
   return (
     <div className="min-h-screen pb-20 bg-pattern">
       <Navigation 
         currentView={view} 
         setView={setView} 
-        notificationCount={notificationCount}
+        notificationCount={0}
         role={role}
+        userEmail={user?.email}
         onLogout={handleLogout}
       />
       
       <main>
-        {role === 'VIEWER' && view === 'viewer' && <ViewerForm />}
-        {role === 'VIEWER' && view === 'notifications' && <NotificationCenter />}
+        {role === 'VIEWER' && user && (
+          <ViewerDashboard userId={user.id} userEmail={user.email} />
+        )}
         
-        {role === 'ADMIN' && view === 'admin' && <AdminDashboard />}
+        {role === 'ADMIN' && <AdminDashboard />}
       </main>
 
       <footer className="fixed bottom-0 w-full py-4 text-center text-gray-600 text-sm bg-owl-900 border-t border-white/5 pointer-events-none">

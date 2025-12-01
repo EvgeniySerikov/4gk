@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Send, LayoutDashboard, Bell, LogOut, User } from 'lucide-react';
+import { Send, LayoutDashboard, LogOut } from 'lucide-react';
 import { UserRole } from '../types';
 
 interface NavigationProps {
@@ -7,10 +8,11 @@ interface NavigationProps {
   setView: (view: 'viewer' | 'admin' | 'notifications') => void;
   notificationCount: number;
   role: UserRole;
+  userEmail?: string;
   onLogout: () => void;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, notificationCount, role, onLogout }) => {
+export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, role, userEmail, onLogout }) => {
   return (
     <nav className="bg-owl-800 border-b border-white/10 sticky top-0 z-50 shadow-lg">
       <div className="max-w-6xl mx-auto px-4">
@@ -26,28 +28,9 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, no
           
           <div className="flex items-center space-x-2 sm:space-x-4">
             {role === 'VIEWER' && (
-              <>
-                <button 
-                  onClick={() => setView('viewer')}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${currentView === 'viewer' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  <Send size={18} />
-                  <span className="hidden sm:inline">Отправить</span>
-                </button>
-                
-                <button 
-                  onClick={() => setView('notifications')}
-                  className={`relative flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${currentView === 'notifications' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  <Bell size={18} />
-                  <span className="hidden sm:inline">Уведомления</span>
-                  {notificationCount > 0 && (
-                    <span className="absolute top-1 right-2 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold">
-                      {notificationCount}
-                    </span>
-                  )}
-                </button>
-              </>
+              <span className="text-sm text-gray-400 mr-2 hidden md:inline">
+                {userEmail}
+              </span>
             )}
 
             {role === 'ADMIN' && (

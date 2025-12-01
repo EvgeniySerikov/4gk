@@ -2,27 +2,26 @@
 import React, { useEffect, useState } from 'react';
 import { getQuestions, updateQuestionStatus, getGames, saveGame, updateQuestionData } from '../services/storageService';
 import { Question, QuestionStatus, Game, QuestionTag } from '../types';
-import { Check, X, Settings, Folder, Box, Zap, Flame, Loader2, RefreshCw } from 'lucide-react';
+import { Check, X, Folder, Box, Zap, Flame, Loader2, RefreshCw, Send as SendIcon, Plus, Eye, EyeOff } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 
 export const AdminDashboard: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isConfigured, setIsConfigured] = useState(true);
-  
-  // Filter States
-  const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'ALL'>('ALL');
-  const [gameFilter, setGameFilter] = useState<string | 'ALL'>('ALL'); // Game ID
-  
-  // UI States
   const [showGameModal, setShowGameModal] = useState(false);
   const [newGameName, setNewGameName] = useState('');
+  
+  // Local state to track which answers are revealed
+  const [revealedAnswers, setRevealedAnswers] = useState<Record<string, boolean>>({});
+
+  // Filter States
+  const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'ALL'>('ALL');
+  const [gameFilter, setGameFilter] = useState<string | 'ALL'>('ALL');
 
   const loadData = async () => {
     setIsLoading(true);
     if (!isSupabaseConfigured()) {
-      setIsConfigured(false);
       setIsLoading(false);
       return;
     }
@@ -34,7 +33,6 @@ export const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     loadData();
-    // Set up a poller to refresh data every 30 seconds (simple realtime alternative)
     const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -45,112 +43,103 @@ export const AdminDashboard: React.FC = () => {
     if (game) {
       setGames(prev => [game, ...prev]);
       setNewGameName('');
-      setShowGameModal(false);
     }
+  };
+
+  const toggleAnswer = (id: string) => {
+    setRevealedAnswers(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleStatusChange = async (id: string, status: QuestionStatus) => {
     let feedback = undefined;
     if (status === QuestionStatus.REJECTED) {
-      const reason = prompt("Причина отказа (будет отправлена в письме):");
+      const reason = prompt("Причина отказа:");
       if (reason) feedback = reason;
-      else return; // Cancel if no reason given
+      else return;
     }
     
-    // Optimistic update
     setQuestions(prev => prev.map(q => q.id === id ? { ...q, status, feedback } : q));
-    
     await updateQuestionStatus(id, status, feedback);
-    loadData(); // Refresh to ensure sync
+    loadData();
   };
 
   const handleAssignGame = (q: Question, gameId: string) => {
     const updated = { ...q, gameId: gameId === 'NONE' ? undefined : gameId };
-    setQuestions(prev => prev.map(item => item.id === q.id ? updated : item)); // Optimistic
+    setQuestions(prev => prev.map(item => item.id === q.id ? updated : item));
     updateQuestionData(updated);
   };
 
   const toggleTag = (q: Question, tag: QuestionTag) => {
     const currentTags = q.tags || [];
-    let newTags: QuestionTag[];
-    
-    if (currentTags.includes(tag)) {
-      newTags = currentTags.filter(t => t !== tag);
-    } else {
-      newTags = [...currentTags, tag];
-    }
-    
+    const newTags = currentTags.includes(tag) ? currentTags.filter(t => t !== tag) : [...currentTags, tag];
     const updated = { ...q, tags: newTags };
-    setQuestions(prev => prev.map(item => item.id === q.id ? updated : item)); // Optimistic
+    setQuestions(prev => prev.map(item => item.id === q.id ? updated : item));
     updateQuestionData(updated);
   };
 
-  // Filter Logic
   const filteredQuestions = questions.filter(q => {
     const matchesStatus = statusFilter === 'ALL' || q.status === statusFilter;
     const matchesGame = gameFilter === 'ALL' ? true : gameFilter === 'NONE' ? !q.gameId : q.gameId === gameFilter;
     return matchesStatus && matchesGame;
   });
 
-  if (!isConfigured) {
-    return (
-      <div className="max-w-2xl mx-auto mt-20 p-8 bg-owl-800 border border-red-500/30 rounded-xl text-center">
-        <h2 className="text-2xl font-bold text-white mb-4">База данных не подключена</h2>
-        <p className="text-gray-300 mb-6">
-          Чтобы приложение работало в облаке, откройте файл <code>config.ts</code> и вставьте туда ключи от Supabase.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-6xl mx-auto mt-8 px-4 pb-20">
       
-      {/* --- HEADER --- */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h2 className="text-3xl font-serif font-bold text-gold-500 flex items-center gap-3">
           Кабинет Ведущего
           {isLoading && <Loader2 className="animate-spin text-gray-500" size={20} />}
         </h2>
         <div className="flex gap-3">
-          <button 
-             onClick={loadData}
-             className="flex items-center gap-2 bg-owl-800 border border-white/10 text-gray-400 px-4 py-2 rounded-lg hover:text-white transition"
-             title="Обновить данные"
-          >
+          <button onClick={loadData} className="bg-owl-800 border border-white/10 text-gray-400 px-4 py-2 rounded-lg hover:text-white transition">
             <RefreshCw size={18} />
           </button>
-          <button 
-             onClick={() => setShowGameModal(true)}
-             className="flex items-center gap-2 bg-owl-800 border border-gold-500/30 text-gold-500 px-4 py-2 rounded-lg hover:bg-owl-900 transition"
-          >
-            <Folder size={18} /> Игры
+          <button onClick={() => setShowGameModal(true)} className="flex items-center gap-2 bg-owl-800 border border-gold-500/30 text-gold-500 px-4 py-2 rounded-lg hover:bg-owl-900 transition">
+            <Folder size={18} /> Управление играми
           </button>
         </div>
       </div>
 
-      {/* --- MODALS --- */}
+      {/* Game Management Modal */}
       {showGameModal && (
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
-          <div className="bg-owl-800 border border-white/10 rounded-xl p-6 max-w-md w-full shadow-2xl">
-             <h3 className="text-xl font-bold text-white mb-4">Создать новую игру</h3>
-             <input 
-               autoFocus
-               type="text"
-               className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white mb-4 focus:border-gold-500 outline-none"
-               placeholder="Например: Весенняя серия, Игра 1"
-               value={newGameName}
-               onChange={e => setNewGameName(e.target.value)}
-             />
-             <div className="flex justify-end gap-3">
-               <button onClick={() => setShowGameModal(false)} className="px-4 py-2 text-gray-400 hover:text-white">Отмена</button>
-               <button onClick={handleCreateGame} className="px-4 py-2 bg-gold-600 text-owl-900 font-bold rounded hover:bg-gold-500">Создать</button>
+          <div className="bg-owl-800 border border-white/10 rounded-xl p-6 max-w-2xl w-full shadow-2xl max-h-[80vh] overflow-y-auto">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold text-white">Список Игр</h3>
+                <button onClick={() => setShowGameModal(false)}><X className="text-gray-400 hover:text-white" /></button>
+             </div>
+             
+             <div className="flex gap-2 mb-6">
+               <input 
+                 type="text"
+                 className="flex-1 bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 outline-none"
+                 placeholder="Название новой игры (напр. Осенняя серия 1)"
+                 value={newGameName}
+                 onChange={e => setNewGameName(e.target.value)}
+               />
+               <button onClick={handleCreateGame} className="px-4 bg-gold-600 text-owl-900 font-bold rounded-lg hover:bg-gold-500 flex items-center gap-2">
+                 <Plus size={20} /> Создать
+               </button>
+             </div>
+
+             <div className="space-y-2">
+               {games.map(g => (
+                 <div key={g.id} className="flex justify-between items-center bg-owl-900/50 p-4 rounded-lg border border-white/5">
+                    <div>
+                      <div className="text-gold-500 font-bold text-lg">{g.name}</div>
+                      <div className="text-gray-500 text-xs">ID: {g.id}</div>
+                    </div>
+                    <div className="text-gray-400 text-sm">{new Date(g.date).toLocaleDateString()}</div>
+                 </div>
+               ))}
              </div>
           </div>
         </div>
       )}
 
-      {/* --- FILTERS --- */}
+      {/* Filters */}
       <div className="flex flex-col xl:flex-row gap-4 mb-8 bg-owl-900/50 p-4 rounded-xl border border-white/5">
         <div className="flex flex-wrap gap-2">
            <button onClick={() => setStatusFilter('ALL')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${statusFilter === 'ALL' ? 'bg-white text-owl-900' : 'bg-owl-800 text-gray-400 hover:text-white'}`}>Все</button>
@@ -178,18 +167,12 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* --- QUESTIONS LIST --- */}
+      {/* Cards */}
       <div className="grid gap-6">
-        {filteredQuestions.length === 0 ? (
-          <div className="text-center py-20 text-gray-500 border border-dashed border-white/10 rounded-xl">
-            {isLoading ? "Загрузка данных..." : "Вопросов с выбранными параметрами не найдено."}
-          </div>
-        ) : (
-          filteredQuestions.map(q => (
+        {filteredQuestions.map(q => (
             <div key={q.id} className="bg-owl-800 rounded-xl border border-white/10 overflow-hidden shadow-lg transition hover:border-gold-500/30">
               <div className="p-6">
                 
-                {/* Header info */}
                 <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-4">
                   <div>
                     <div className="flex flex-wrap gap-2 items-center mb-2">
@@ -201,29 +184,36 @@ export const AdminDashboard: React.FC = () => {
                         q.status === QuestionStatus.NOT_PLAYED ? 'bg-gray-700 text-gray-300' :
                         'bg-red-900 text-red-200'
                       }`}>
-                        {q.status === QuestionStatus.PENDING ? 'Ожидает' : 
-                         q.status === QuestionStatus.APPROVED ? 'Одобрен' : 
-                         q.status === QuestionStatus.SELECTED ? 'Отобран на игру' : 
-                         q.status === QuestionStatus.PLAYED ? 'Сыгран' : 
-                         q.status === QuestionStatus.NOT_PLAYED ? 'Не выпал' : 'Отклонен'}
+                        {q.status}
                       </span>
-                      
-                      {q.tags?.includes('BLACK_BOX') && <span className="px-2 py-0.5 rounded bg-black text-white text-xs border border-white/20">ЧЕРНЫЙ ЯЩИК</span>}
-                      {q.tags?.includes('BLITZ') && <span className="px-2 py-0.5 rounded bg-yellow-600/20 text-yellow-500 text-xs border border-yellow-500/20">БЛИЦ</span>}
-                      {q.tags?.includes('SUPER_BLITZ') && <span className="px-2 py-0.5 rounded bg-red-600/20 text-red-500 text-xs border border-red-500/20">СУПЕРБЛИЦ</span>}
+                      {q.tags?.map(t => (
+                        <span key={t} className="px-2 py-0.5 rounded bg-white/10 text-white text-xs border border-white/20">{t}</span>
+                      ))}
                     </div>
 
-                    <h3 className="text-xl font-bold text-white">{q.questionText}</h3>
-                    <div className="text-sm text-gray-400 mt-2">
-                      👤 {q.authorName} &lt;{q.authorEmail}&gt;
+                    <h3 className="text-xl font-bold text-white mb-2">{q.questionText}</h3>
+                    
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
+                      <span>👤 {q.authorName}</span>
+                      <span>📧 {q.authorEmail}</span>
+                      {q.telegram && (
+                        <a 
+                          href={`https://t.me/${q.telegram.replace('@', '')}`} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="flex items-center gap-1 text-blue-400 hover:text-blue-300 hover:underline"
+                        >
+                          <SendIcon size={12} /> @{q.telegram.replace('@', '')}
+                        </a>
+                      )}
                     </div>
                   </div>
                   
-                  <div className="flex flex-col items-end gap-2">
+                  <div className="flex flex-col items-end gap-2 min-w-[150px]">
                      <span className="text-xs text-gray-500">{new Date(q.submissionDate).toLocaleDateString('ru-RU')}</span>
                      {q.status !== QuestionStatus.PENDING && q.status !== QuestionStatus.REJECTED && (
                        <select 
-                         className="bg-owl-900 text-xs text-gold-500 border border-gold-500/30 rounded px-2 py-1 outline-none"
+                         className="bg-owl-900 text-xs text-gold-500 border border-gold-500/30 rounded px-2 py-1 outline-none w-full"
                          value={q.gameId || 'NONE'}
                          onChange={(e) => handleAssignGame(q, e.target.value)}
                        >
@@ -236,9 +226,20 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-owl-900/50 p-4 rounded-lg mb-4 border border-white/5">
-                  <p className="text-sm font-bold text-gold-500 mb-1">Ответ:</p>
-                  <p className="text-gray-300">{q.answerText}</p>
+                <div className="bg-owl-900/50 p-4 rounded-lg mb-4 border border-white/5 relative group">
+                  <div className="flex justify-between items-center mb-1">
+                    <p className="text-sm font-bold text-gold-500">Ответ:</p>
+                    <button 
+                      onClick={() => toggleAnswer(q.id)}
+                      className="text-gray-500 hover:text-gold-500"
+                      title={revealedAnswers[q.id] ? "Скрыть" : "Показать"}
+                    >
+                      {revealedAnswers[q.id] ? <EyeOff size={16}/> : <Eye size={16}/>}
+                    </button>
+                  </div>
+                  <div className={`text-gray-300 transition-all duration-300 ${revealedAnswers[q.id] ? 'blur-none' : 'blur-md select-none'}`}>
+                    {q.answerText}
+                  </div>
                 </div>
 
                 {/* Controls */}
@@ -285,12 +286,10 @@ export const AdminDashboard: React.FC = () => {
                         Вернуть в игру
                       </button>
                   )}
-
                 </div>
               </div>
             </div>
-          ))
-        )}
+        ))}
       </div>
     </div>
   );

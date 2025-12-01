@@ -4,13 +4,20 @@ import { saveQuestion } from '../services/storageService';
 import { Send, Loader2 } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 
-export const ViewerForm: React.FC = () => {
+interface ViewerFormProps {
+  userId?: string;
+  userEmail?: string;
+  onSuccess?: () => void;
+}
+
+export const ViewerForm: React.FC<ViewerFormProps> = ({ userId, userEmail, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   
   const [formData, setFormData] = useState({
     authorName: '',
-    authorEmail: '',
+    authorEmail: userEmail || '',
+    telegram: '',
     questionText: '',
     answerText: ''
   });
@@ -19,7 +26,7 @@ export const ViewerForm: React.FC = () => {
     return (
       <div className="max-w-2xl mx-auto mt-10 p-8 bg-owl-800 rounded-xl border border-red-500/30 text-center">
         <h3 className="text-xl text-white mb-2">Техническое обслуживание</h3>
-        <p className="text-gray-400">Система приема вопросов временно недоступна. Пожалуйста, сообщите администратору.</p>
+        <p className="text-gray-400">Система приема вопросов временно недоступна.</p>
       </div>
     );
   }
@@ -29,20 +36,22 @@ export const ViewerForm: React.FC = () => {
     setLoading(true);
 
     try {
-      // Save directly (logic moved to storageService)
       const result = await saveQuestion({
-        ...formData
+        ...formData,
+        userId: userId
       });
       
       if (result) {
         setSuccess(true);
         setFormData({
           authorName: '',
-          authorEmail: '',
+          authorEmail: userEmail || '',
+          telegram: '',
           questionText: '',
           answerText: ''
         });
-        setTimeout(() => setSuccess(false), 8000);
+        if (onSuccess) setTimeout(onSuccess, 2000);
+        else setTimeout(() => setSuccess(false), 8000);
       } else {
         alert("Ошибка связи с сервером. Попробуйте позже.");
       }
@@ -55,8 +64,8 @@ export const ViewerForm: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto mt-10 p-8 bg-owl-800 rounded-xl shadow-2xl border border-white/5 mb-10">
-      <h2 className="text-3xl font-serif text-center mb-6 text-white">Отправить вопрос в ЧГК Батуми</h2>
+    <div className="bg-owl-800 rounded-xl shadow-2xl border border-white/5 p-6 md:p-8">
+      <h2 className="text-2xl font-serif text-white mb-6">Отправить вопрос</h2>
       
       {success ? (
         <div className="bg-green-500/20 border border-green-500 text-green-200 p-6 rounded-lg text-center animate-pulse">
@@ -71,7 +80,7 @@ export const ViewerForm: React.FC = () => {
               <input
                 required
                 type="text"
-                className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none transition"
+                className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 outline-none transition"
                 placeholder="Иван Иванов"
                 value={formData.authorName}
                 onChange={e => setFormData({...formData, authorName: e.target.value})}
@@ -82,10 +91,24 @@ export const ViewerForm: React.FC = () => {
               <input
                 required
                 type="email"
-                className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none transition"
+                className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 outline-none transition"
                 placeholder="ivan@example.com"
                 value={formData.authorEmail}
                 onChange={e => setFormData({...formData, authorEmail: e.target.value})}
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Telegram (логин)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-3 text-gray-500">@</span>
+              <input
+                type="text"
+                className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 pl-8 text-white focus:border-gold-500 outline-none transition"
+                placeholder="username"
+                value={formData.telegram}
+                onChange={e => setFormData({...formData, telegram: e.target.value.replace('@', '')})}
               />
             </div>
           </div>
@@ -95,7 +118,7 @@ export const ViewerForm: React.FC = () => {
             <textarea
               required
               rows={6}
-              className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none transition"
+              className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 outline-none transition"
               placeholder="В черном ящике находится..."
               value={formData.questionText}
               onChange={e => setFormData({...formData, questionText: e.target.value})}
@@ -107,7 +130,7 @@ export const ViewerForm: React.FC = () => {
             <textarea
               required
               rows={3}
-              className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none transition"
+              className="w-full bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 outline-none transition"
               placeholder="Ответ..."
               value={formData.answerText}
               onChange={e => setFormData({...formData, answerText: e.target.value})}
@@ -119,17 +142,8 @@ export const ViewerForm: React.FC = () => {
             disabled={loading}
             className="w-full bg-gold-600 hover:bg-gold-500 text-owl-900 font-bold py-4 rounded-lg shadow-lg transform transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {loading ? (
-              <>
-                <Loader2 className="animate-spin" />
-                Отправка...
-              </>
-            ) : (
-              <>
-                <Send size={20} />
-                Отправить вопрос
-              </>
-            )}
+            {loading ? <Loader2 className="animate-spin" /> : <Send size={20} />}
+            Отправить вопрос
           </button>
         </form>
       )}

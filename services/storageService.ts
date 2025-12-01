@@ -25,7 +25,7 @@ export const getGames = async (): Promise<Game[]> => {
   return (data || []).map((g: any) => ({
     id: g.id,
     name: g.name,
-    date: Number(g.date) // Ensure BigInt/String is converted to Number for JS Date
+    date: Number(g.date)
   }));
 };
 
@@ -70,15 +70,46 @@ export const getQuestions = async (): Promise<Question[]> => {
     return [];
   }
 
-  // Map snake_case from DB to camelCase for App
   return (data || []).map((q: any) => ({
     id: q.id,
+    userId: q.user_id,
     authorName: q.author_name,
     authorEmail: q.author_email,
+    telegram: q.telegram,
     questionText: q.question_text,
     answerText: q.answer_text,
     status: q.status,
-    submissionDate: Number(q.submission_date), // Safe cast
+    submissionDate: Number(q.submission_date),
+    feedback: q.feedback,
+    gameId: q.game_id,
+    tags: q.tags || []
+  }));
+};
+
+export const getMyQuestions = async (userId: string): Promise<Question[]> => {
+  if (!isSupabaseConfigured()) return [];
+
+  const { data, error } = await supabase!
+    .from('questions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('submission_date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching my questions:', error);
+    return [];
+  }
+
+  return (data || []).map((q: any) => ({
+    id: q.id,
+    userId: q.user_id,
+    authorName: q.author_name,
+    authorEmail: q.author_email,
+    telegram: q.telegram,
+    questionText: q.question_text,
+    answerText: q.answer_text,
+    status: q.status,
+    submissionDate: Number(q.submission_date),
     feedback: q.feedback,
     gameId: q.game_id,
     tags: q.tags || []
@@ -92,8 +123,10 @@ export const saveQuestion = async (questionData: Omit<Question, 'id' | 'status' 
   }
 
   const dbQuestion = {
+    user_id: questionData.userId,
     author_name: questionData.authorName,
     author_email: questionData.authorEmail,
+    telegram: questionData.telegram,
     question_text: questionData.questionText,
     answer_text: questionData.answerText,
     status: QuestionStatus.PENDING,
@@ -164,26 +197,13 @@ export const updateQuestionStatus = async (id: string, status: QuestionStatus, f
   // 3. Send Email
   let statusRussian = "";
   switch(status) {
-    case QuestionStatus.PENDING:
-      statusRussian = "Ваш вопрос получен и ОЖИДАЕТ рассмотрения.";
-      break;
-    case QuestionStatus.APPROVED: 
-      statusRussian = "Ваш вопрос ОДОБРЕН и ожидает отбора на игру."; 
-      break;
-    case QuestionStatus.REJECTED: 
-      statusRussian = "К сожалению, ваш вопрос ОТКЛОНЕН."; 
-      break;
-    case QuestionStatus.SELECTED: 
-      statusRussian = "ПОЗДРАВЛЯЕМ! Ваш вопрос отобран для ближайшей игры."; 
-      break;
-    case QuestionStatus.PLAYED:
-      statusRussian = "Ваш вопрос сыграл в сегодняшней игре! Спасибо за отличный вопрос.";
-      break;
-    case QuestionStatus.NOT_PLAYED:
-      statusRussian = "Вопрос был на столе, но не выпал. Он остается в базе редакционной группы.";
-      break;
-    default: 
-      statusRussian = `Статус изменен на: ${status}`;
+    case QuestionStatus.PENDING: statusRussian = "Ваш вопрос получен и ОЖИДАЕТ рассмотрения."; break;
+    case QuestionStatus.APPROVED: statusRussian = "Ваш вопрос ОДОБРЕН и ожидает отбора на игру."; break;
+    case QuestionStatus.REJECTED: statusRussian = "К сожалению, ваш вопрос ОТКЛОНЕН."; break;
+    case QuestionStatus.SELECTED: statusRussian = "ПОЗДРАВЛЯЕМ! Ваш вопрос отобран для ближайшей игры."; break;
+    case QuestionStatus.PLAYED: statusRussian = "Ваш вопрос сыграл в сегодняшней игре! Спасибо за отличный вопрос."; break;
+    case QuestionStatus.NOT_PLAYED: statusRussian = "Вопрос был на столе, но не выпал. Он остается в базе редакционной группы."; break;
+    default: statusRussian = `Статус изменен на: ${status}`;
   }
 
   await sendStatusEmail(
@@ -197,29 +217,9 @@ export const updateQuestionStatus = async (id: string, status: QuestionStatus, f
   return true;
 };
 
-// --- NOTIFICATIONS (Simplified for Cloud) ---
+// --- NOTIFICATIONS ---
 export const getNotifications = async (): Promise<Notification[]> => {
-  const questions = await getQuestions();
-  
-  // Transform questions into notification-like objects for the feed
-  return questions.map(q => {
-    let message = "";
-    switch(q.status) {
-      case QuestionStatus.PENDING: message = `📨 Вопрос отправлен: "${q.questionText.substring(0, 30)}..."`; break;
-      case QuestionStatus.APPROVED: message = `✅ Вопрос ОДОБРЕН: "${q.questionText.substring(0, 30)}..."`; break;
-      case QuestionStatus.REJECTED: message = `❌ Вопрос отклонен: "${q.questionText.substring(0, 30)}..."`; break;
-      case QuestionStatus.SELECTED: message = `📺 Вопрос отобран на игру!`; break;
-      case QuestionStatus.PLAYED: message = `🦉 Вопрос СЫГРАН!`; break;
-      case QuestionStatus.NOT_PLAYED: message = `🎲 Вопрос не выпал.`; break;
-    }
-    
-    return {
-      id: q.id + '_notif',
-      questionId: q.id,
-      channel: NotificationChannel.EMAIL,
-      message,
-      date: q.submissionDate,
-      read: false
-    };
-  });
+  // In a real app with Auth, we would filter this by user_id on the server.
+  // Here we just return empty for Guest/Admin and rely on components to fetch what they need.
+  return [];
 };
