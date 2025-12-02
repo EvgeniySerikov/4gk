@@ -311,7 +311,7 @@ export const createAnnouncement = async (title: string, message: string, imageUr
   if (!isSupabaseConfigured()) return false;
   
   const { error } = await supabase!.from('announcements').insert([{
-    title, message, image_url: imageUrl, link_url: linkUrl, link_text: linkText, created_at: new Date().toISOString()
+    title, message, image_url: imageUrl, link_url: linkUrl, link_text: linkText, created_at: new Date().toISOString(), views: 0
   }]);
   
   return !error;
@@ -334,9 +334,26 @@ export const getAnnouncements = async (): Promise<Announcement[]> => {
     imageUrl: a.image_url,
     linkUrl: a.link_url,
     linkText: a.link_text,
-    createdAt: new Date(a.created_at).getTime()
+    createdAt: new Date(a.created_at).getTime(),
+    views: a.views || 0
   }));
 };
+
+export const incrementAnnouncementViews = async (announcementIds: string[]) => {
+  if (!isSupabaseConfigured() || announcementIds.length === 0) return;
+  // Supabase doesn't support bulk update with increment easily without RPC, 
+  // so we'll just loop for MVP or use a raw query if enabled.
+  // For safety and standard API, we do individual updates but catch errors silently.
+  for (const id of announcementIds) {
+     await supabase!.rpc('increment_views', { row_id: id }).catch(async () => {
+       // Fallback if RPC doesn't exist: fetch and update
+       const { data } = await supabase!.from('announcements').select('views').eq('id', id).single();
+       if (data) {
+         await supabase!.from('announcements').update({ views: (data.views || 0) + 1 }).eq('id', id);
+       }
+     });
+  }
+}
 
 export const createPoll = async (question: string, options: string[]): Promise<boolean> => {
   if (!isSupabaseConfigured()) return false;
@@ -360,8 +377,7 @@ export const getActivePolls = async (userId?: string): Promise<Poll[]> => {
     
   if (error || !polls) return [];
   
-  // Calculate results locally (simpler than complex SQL grouping via client)
-  // Fetch all votes for active polls
+  // Fetch all votes for active polls to calculate results
   const pollIds = polls.map((p: any) => p.id);
   const { data: votes } = await supabase!
     .from('poll_votes')
@@ -371,9 +387,15 @@ export const getActivePolls = async (userId?: string): Promise<Poll[]> => {
   return polls.map((p: any) => {
     const pVotes = votes?.filter((v: any) => v.poll_id === p.id) || [];
     const results: {[key: number]: number} = {};
+    
+    // Initialize 0 for all options
     p.options?.forEach((_: any, idx: number) => results[idx] = 0);
+    
+    // Count actual votes
     pVotes.forEach((v: any) => {
-      results[v.option_index] = (results[v.option_index] || 0) + 1;
+      if (typeof v.option_index === 'number') {
+         results[v.option_index] = (results[v.option_index] || 0) + 1;
+      }
     });
     
     const userVote = userId ? pVotes.find((v: any) => v.user_id === userId)?.option_index : undefined;

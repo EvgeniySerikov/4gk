@@ -20,7 +20,7 @@ export interface Game {
 }
 
 export type QuestionTag = 'BLACK_BOX' | 'BLITZ' | 'SUPER_BLITZ';
-export type ExpertStatus = 'NOVICE' | 'MASTER' | 'LEGEND';
+export type ExpertStatus = 'NOVICE' | 'EXPERIENCED' | 'MASTER';
 
 export interface UserProfile {
   id: string;
@@ -73,6 +73,7 @@ export interface Announcement {
   linkUrl?: string;
   linkText?: string;
   createdAt: number;
+  views: number;
 }
 
 export interface Poll {

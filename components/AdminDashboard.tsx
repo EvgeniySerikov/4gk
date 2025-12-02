@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { getQuestions, updateQuestionStatus, getGames, saveGame, updateQuestionData, getAllUsers, updateUserProfile, updateGameExperts, createAnnouncement, createPoll, getActivePolls, getPollVotesDetails, uploadImage } from '../services/storageService';
 import { Question, QuestionStatus, Game, QuestionTag, UserProfile, ExpertStatus, Poll, PollVoteDetail } from '../types';
-import { Check, X, Folder, Box, Zap, Flame, Loader2, RefreshCw, Send as SendIcon, Plus, Eye, EyeOff, Users, Image as ImageIcon, ThumbsUp, ThumbsDown, GraduationCap, Star, User, MessageSquare, BarChart2, Paperclip } from 'lucide-react';
+import { Check, X, Folder, Box, Zap, Flame, Loader2, RefreshCw, Send as SendIcon, Plus, Eye, EyeOff, Users, Image as ImageIcon, ThumbsUp, ThumbsDown, GraduationCap, Star, User, MessageSquare, BarChart2, Paperclip, Activity } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 
 const STATUS_MAP: Record<QuestionStatus, string> = {
@@ -22,8 +22,8 @@ const TAG_MAP: Record<QuestionTag, string> = {
 
 const EXPERT_STATUS_MAP: Record<ExpertStatus, string> = {
   'NOVICE': 'Новичок',
-  'MASTER': 'Магистр',
-  'LEGEND': 'Легенда'
+  'EXPERIENCED': 'Опытный',
+  'MASTER': 'Магистр'
 };
 
 export const AdminDashboard: React.FC = () => {
@@ -59,6 +59,7 @@ export const AdminDashboard: React.FC = () => {
   const [creatingPoll, setCreatingPoll] = useState(false);
   const [viewingPollId, setViewingPollId] = useState<string | null>(null);
   const [pollDetails, setPollDetails] = useState<PollVoteDetail[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -66,11 +67,21 @@ export const AdminDashboard: React.FC = () => {
       setIsLoading(false);
       return;
     }
-    const [qData, gData, uData, pData] = await Promise.all([getQuestions(), getGames(), getAllUsers(), getActivePolls()]);
+    const { getAnnouncements: fetchAnnouncements } = await import('../services/storageService');
+    
+    const [qData, gData, uData, pData, aData] = await Promise.all([
+      getQuestions(), 
+      getGames(), 
+      getAllUsers(), 
+      getActivePolls(),
+      fetchAnnouncements()
+    ]);
+    
     setQuestions(qData);
     setGames(gData);
     setUsers(uData);
     setPolls(pData);
+    setAnnouncements(aData);
     setIsLoading(false);
   };
 
@@ -124,16 +135,29 @@ export const AdminDashboard: React.FC = () => {
 
   // User Management
   const handleUpdateUserStatus = async (user: UserProfile, status: ExpertStatus) => {
-     const success = await updateUserProfile(user.id, { expertStatus: status });
-     if(success) setUsers(prev => prev.map(u => u.id === user.id ? { ...u, expertStatus: status } : u));
+     // Optimistic update
+     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, expertStatus: status } : u));
      if(selectedUser?.id === user.id) setSelectedUser({ ...selectedUser, expertStatus: status });
+     
+     const success = await updateUserProfile(user.id, { expertStatus: status });
+     if (!success) {
+        // Revert on failure (simplified)
+        alert("Ошибка сохранения статуса");
+        loadData();
+     }
   };
 
   const handleToggleExpert = async (user: UserProfile) => {
      const newVal = !user.isExpert;
-     const success = await updateUserProfile(user.id, { isExpert: newVal });
-     if(success) setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isExpert: newVal } : u));
+     // Optimistic update
+     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isExpert: newVal } : u));
      if(selectedUser?.id === user.id) setSelectedUser({ ...selectedUser, isExpert: newVal });
+
+     const success = await updateUserProfile(user.id, { isExpert: newVal });
+     if (!success) {
+        alert("Ошибка сохранения роли");
+        loadData();
+     }
   };
 
   // Team Management
@@ -168,6 +192,7 @@ export const AdminDashboard: React.FC = () => {
       setAnnounceMsg('');
       setAnnounceLink('');
       setAnnounceImage(null);
+      loadData();
     }
     setSendingAnnounce(false);
   };
@@ -181,8 +206,7 @@ export const AdminDashboard: React.FC = () => {
       alert("Опрос создан!");
       setPollQuestion('');
       setPollOptions(['Да', 'Нет']);
-      const pData = await getActivePolls();
-      setPolls(pData);
+      loadData();
     }
     setCreatingPoll(false);
   };
@@ -202,28 +226,30 @@ export const AdminDashboard: React.FC = () => {
   const getUserQuestions = (userId: string) => questions.filter(q => q.userId === userId);
 
   return (
-    <div className="max-w-7xl mx-auto mt-8 px-4 pb-20">
+    <div className="max-w-7xl mx-auto mt-6 px-4 pb-20">
       
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
         <h2 className="text-3xl font-serif font-bold text-gold-500 flex items-center gap-3">
           Кабинет Ведущего
           {isLoading && <Loader2 className="animate-spin text-gray-500" size={20} />}
         </h2>
         
-        <div className="flex bg-owl-900 p-1 rounded-lg border border-white/5">
-           <button onClick={() => setActiveTab('questions')} className={`px-4 py-2 rounded-md transition ${activeTab === 'questions' ? 'bg-gold-600 text-owl-900' : 'text-gray-400 hover:text-white'}`}>Вопросы</button>
-           <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-md transition ${activeTab === 'users' ? 'bg-gold-600 text-owl-900' : 'text-gray-400 hover:text-white'}`}>Пользователи</button>
-           <button onClick={() => setActiveTab('communication')} className={`px-4 py-2 rounded-md transition ${activeTab === 'communication' ? 'bg-gold-600 text-owl-900' : 'text-gray-400 hover:text-white'}`}>Коммуникация</button>
-        </div>
+        <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-3">
+          <div className="flex bg-owl-900 p-1 rounded-lg border border-white/5 overflow-x-auto">
+             <button onClick={() => setActiveTab('questions')} className={`px-4 py-2 rounded-md transition whitespace-nowrap ${activeTab === 'questions' ? 'bg-gold-600 text-owl-900' : 'text-gray-400 hover:text-white'}`}>Вопросы</button>
+             <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-md transition whitespace-nowrap ${activeTab === 'users' ? 'bg-gold-600 text-owl-900' : 'text-gray-400 hover:text-white'}`}>Пользователи</button>
+             <button onClick={() => setActiveTab('communication')} className={`px-4 py-2 rounded-md transition whitespace-nowrap ${activeTab === 'communication' ? 'bg-gold-600 text-owl-900' : 'text-gray-400 hover:text-white'}`}>Коммуникация</button>
+          </div>
 
-        <div className="flex gap-3">
-          <button onClick={loadData} className="bg-owl-800 border border-white/10 text-gray-400 px-4 py-2 rounded-lg hover:text-white transition">
-            <RefreshCw size={18} />
-          </button>
-          <button onClick={() => setShowGameModal(true)} className="flex items-center gap-2 bg-owl-800 border border-gold-500/30 text-gold-500 px-4 py-2 rounded-lg hover:bg-owl-900 transition">
-            <Folder size={18} /> Игры
-          </button>
+          <div className="flex gap-2 ml-auto">
+            <button onClick={loadData} className="bg-owl-800 border border-white/10 text-gray-400 px-4 py-2 rounded-lg hover:text-white transition">
+              <RefreshCw size={18} />
+            </button>
+            <button onClick={() => setShowGameModal(true)} className="flex items-center gap-2 bg-owl-800 border border-gold-500/30 text-gold-500 px-4 py-2 rounded-lg hover:bg-owl-900 transition whitespace-nowrap">
+              <Folder size={18} /> Игры
+            </button>
+          </div>
         </div>
       </div>
 
@@ -235,19 +261,19 @@ export const AdminDashboard: React.FC = () => {
                 <h3 className="text-2xl font-bold text-white">Управление Играми</h3>
                 <button onClick={() => setShowGameModal(false)}><X className="text-gray-400 hover:text-white" /></button>
              </div>
-             <div className="flex gap-2 mb-6">
+             <div className="flex flex-col sm:flex-row gap-2 mb-6">
                <input className="flex-1 bg-owl-900 border border-white/10 rounded-lg p-3 text-white focus:border-gold-500 outline-none" placeholder="Название новой игры" value={newGameName} onChange={e => setNewGameName(e.target.value)} />
-               <button onClick={handleCreateGame} className="px-4 bg-gold-600 text-owl-900 font-bold rounded-lg hover:bg-gold-500 flex items-center gap-2"><Plus size={20} /> Создать</button>
+               <button onClick={handleCreateGame} className="px-4 py-3 bg-gold-600 text-owl-900 font-bold rounded-lg hover:bg-gold-500 flex items-center justify-center gap-2"><Plus size={20} /> Создать</button>
              </div>
              <div className="space-y-3">
                {games.map(g => (
-                 <div key={g.id} className="flex justify-between items-center bg-owl-900/50 p-4 rounded-lg border border-white/5 hover:border-gold-500/30">
-                    <div onClick={() => { setGameFilter(g.id); setShowGameModal(false); }} className="cursor-pointer flex-1">
+                 <div key={g.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-owl-900/50 p-4 rounded-lg border border-white/5 hover:border-gold-500/30 gap-3">
+                    <div onClick={() => { setGameFilter(g.id); setShowGameModal(false); }} className="cursor-pointer flex-1 w-full">
                       <div className="text-gold-500 font-bold text-lg">{g.name}</div>
                       <div className="text-gray-400 text-sm">{new Date(g.date).toLocaleDateString()}</div>
                     </div>
                     <div className="flex gap-2">
-                       <button onClick={() => setManagingGameId(g.id)} className="px-3 py-1 bg-purple-900/40 text-purple-200 text-xs rounded border border-purple-500/30 hover:bg-purple-900/60">
+                       <button onClick={() => setManagingGameId(g.id)} className="px-3 py-1 bg-purple-900/40 text-purple-200 text-xs rounded border border-purple-500/30 hover:bg-purple-900/60 whitespace-nowrap">
                           Команда ({g.expertIds?.length || 0})
                        </button>
                     </div>
@@ -263,22 +289,22 @@ export const AdminDashboard: React.FC = () => {
          <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
             <div className="bg-owl-800 border border-white/10 rounded-xl p-6 max-w-2xl w-full shadow-2xl max-h-[80vh] flex flex-col">
                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-bold text-white">Состав Знатоков: {games.find(g => g.id === managingGameId)?.name}</h3>
+                  <h3 className="text-2xl font-bold text-white">Состав Знатоков</h3>
                   <button onClick={() => setManagingGameId(null)}><X className="text-gray-400 hover:text-white" /></button>
                </div>
                
-               <div className="overflow-y-auto pr-2 space-y-2">
+               <div className="overflow-y-auto pr-2 space-y-2 flex-1">
                  {users.map(user => {
                     const isSelected = games.find(g => g.id === managingGameId)?.expertIds?.includes(user.id);
                     return (
                       <div key={user.id} className={`flex justify-between items-center p-3 rounded-lg border ${isSelected ? 'bg-gold-900/20 border-gold-500/50' : 'bg-owl-900/30 border-white/5'} hover:bg-owl-900 transition`}>
                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-owl-800 overflow-hidden">
+                            <div className="w-10 h-10 rounded-full bg-owl-800 overflow-hidden flex-shrink-0">
                               {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">{user.fullName[0]}</div>}
                             </div>
                             <div>
-                               <div className="text-white font-bold">{user.fullName || 'Без имени'}</div>
-                               <div className="text-xs text-gray-400 flex gap-2">
+                               <div className="text-white font-bold text-sm sm:text-base">{user.fullName || 'Без имени'}</div>
+                               <div className="text-xs text-gray-400 flex flex-wrap gap-2">
                                   <span>{EXPERT_STATUS_MAP[user.expertStatus]}</span>
                                   {user.isExpert && <span className="text-purple-400">Знаток</span>}
                                </div>
@@ -307,7 +333,7 @@ export const AdminDashboard: React.FC = () => {
                 <button onClick={() => setViewingPollId(null)}><X className="text-gray-400 hover:text-white" /></button>
              </div>
              
-             <div className="overflow-y-auto">
+             <div className="overflow-y-auto flex-1">
                {polls.find(p => p.id === viewingPollId)?.options.map((opt, idx) => {
                  const votes = pollDetails.filter(d => d.optionIndex === idx);
                  return (
@@ -317,6 +343,7 @@ export const AdminDashboard: React.FC = () => {
                         <span className="text-gray-400 text-sm">{votes.length} голосов</span>
                      </div>
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                       {votes.length === 0 && <span className="text-xs text-gray-600 italic">Нет голосов</span>}
                        {votes.map((v, i) => (
                          <div key={i} className="flex items-center gap-2 bg-owl-900/30 p-2 rounded">
                             <div className="w-6 h-6 rounded-full bg-owl-800 overflow-hidden flex-shrink-0">
@@ -347,7 +374,7 @@ export const AdminDashboard: React.FC = () => {
                    }
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-1">{selectedUser.fullName || 'Без имени'}</h2>
-                <div className="text-gray-400 mb-6">{selectedUser.email}</div>
+                <div className="text-gray-400 mb-6 text-sm break-all">{selectedUser.email}</div>
                 {selectedUser.telegram && (
                   <a href={`https://t.me/${selectedUser.telegram}`} target="_blank" className="bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-full text-sm hover:bg-blue-600/30 flex items-center gap-2 mb-6">
                     <SendIcon size={14} /> @{selectedUser.telegram}
@@ -356,19 +383,30 @@ export const AdminDashboard: React.FC = () => {
                 
                 <div className="w-full bg-owl-900/50 p-4 rounded-lg border border-white/5 text-left space-y-4">
                    <div>
-                     <label className="text-xs text-gray-500 block mb-1">Роль в клубе</label>
-                     <button onClick={() => handleToggleExpert(selectedUser)} className={`w-full py-2 rounded text-sm font-bold transition ${selectedUser.isExpert ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}`}>
-                        {selectedUser.isExpert ? '🎓 Знаток' : '👤 Телезритель'}
-                     </button>
+                     <label className="text-xs text-gray-500 block mb-2">Роли в клубе</label>
+                     <div className="flex flex-col gap-2">
+                       <div className="flex items-center justify-between bg-owl-800 p-2 rounded border border-white/5">
+                          <span className="text-sm text-gray-300">👤 Телезритель</span>
+                          <Check size={16} className="text-green-500"/>
+                       </div>
+                       <button 
+                         onClick={() => handleToggleExpert(selectedUser)} 
+                         className={`flex items-center justify-between p-2 rounded border transition ${selectedUser.isExpert ? 'bg-purple-900/30 border-purple-500/50' : 'bg-owl-800 border-white/5 hover:bg-owl-700'}`}
+                       >
+                          <span className={`text-sm ${selectedUser.isExpert ? 'text-purple-300 font-bold' : 'text-gray-400'}`}>🎓 Знаток</span>
+                          {selectedUser.isExpert ? <Check size={16} className="text-purple-400"/> : <Plus size={16} className="text-gray-500"/>}
+                       </button>
+                     </div>
                    </div>
+
                    <div>
-                     <label className="text-xs text-gray-500 block mb-1">Статус (Ранг)</label>
+                     <label className="text-xs text-gray-500 block mb-2">Статус (Ранг)</label>
                      <div className="flex flex-col gap-1">
-                        {(['NOVICE', 'MASTER', 'LEGEND'] as ExpertStatus[]).map(status => (
+                        {(['NOVICE', 'EXPERIENCED', 'MASTER'] as ExpertStatus[]).map(status => (
                            <button 
                              key={status}
                              onClick={() => handleUpdateUserStatus(selectedUser, status)}
-                             className={`px-2 py-1.5 text-xs rounded text-left ${selectedUser.expertStatus === status ? 'bg-gold-600 text-owl-900 font-bold' : 'text-gray-400 hover:bg-white/5'}`}
+                             className={`px-3 py-2 text-xs rounded text-left transition ${selectedUser.expertStatus === status ? 'bg-gold-600 text-owl-900 font-bold' : 'bg-owl-800 text-gray-400 hover:bg-white/5'}`}
                            >
                              {EXPERT_STATUS_MAP[status]}
                            </button>
@@ -389,12 +427,12 @@ export const AdminDashboard: React.FC = () => {
                      <p className="text-gray-500 text-center py-10">Нет вопросов</p>
                    ) : (
                      getUserQuestions(selectedUser.id).map(q => (
-                       <div key={q.id} className="bg-owl-900/50 border border-white/5 rounded p-3 flex justify-between items-start">
-                          <div>
-                            <div className="text-white text-sm font-medium line-clamp-1">{q.questionText}</div>
-                            <div className="text-xs text-gray-500">{new Date(q.submissionDate).toLocaleDateString()}</div>
+                       <div key={q.id} className="bg-owl-900/50 border border-white/5 rounded p-3 flex flex-col sm:flex-row justify-between items-start gap-2">
+                          <div className="flex-1">
+                            <div className="text-white text-sm font-medium line-clamp-2">{q.questionText}</div>
+                            <div className="text-xs text-gray-500 mt-1">{new Date(q.submissionDate).toLocaleDateString()}</div>
                           </div>
-                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold whitespace-nowrap ${
                              q.status === 'APPROVED' ? 'bg-green-900 text-green-300' :
                              q.status === 'REJECTED' ? 'bg-red-900 text-red-300' :
                              q.status === 'SELECTED' ? 'bg-purple-900 text-purple-300' :
@@ -413,32 +451,50 @@ export const AdminDashboard: React.FC = () => {
 
       {/* TAB CONTENT: COMMUNICATION */}
       {activeTab === 'communication' && (
-        <div className="grid md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4">
            
            {/* CREATE ANNOUNCEMENT */}
-           <div className="bg-owl-800 rounded-xl border border-white/10 p-6">
-              <h3 className="text-xl font-bold text-gold-500 mb-4 flex items-center gap-2"><MessageSquare size={20}/> Создать Рассылку</h3>
-              <form onSubmit={handleSendAnnouncement} className="space-y-4">
-                 <input className="w-full bg-owl-900 border border-white/10 rounded p-3 text-white focus:border-gold-500 outline-none" placeholder="Заголовок новости" value={announceTitle} onChange={e => setAnnounceTitle(e.target.value)} required />
-                 <textarea className="w-full bg-owl-900 border border-white/10 rounded p-3 text-white focus:border-gold-500 outline-none" rows={4} placeholder="Текст сообщения для всех пользователей..." value={announceMsg} onChange={e => setAnnounceMsg(e.target.value)} required />
-                 
-                 <div className="flex gap-2">
-                    <input className="flex-1 bg-owl-900 border border-white/10 rounded p-2 text-sm text-white focus:border-gold-500 outline-none" placeholder="Ссылка (https://...)" value={announceLink} onChange={e => setAnnounceLink(e.target.value)} />
-                    <input className="w-1/3 bg-owl-900 border border-white/10 rounded p-2 text-sm text-white focus:border-gold-500 outline-none" placeholder="Текст кнопки" value={announceLinkText} onChange={e => setAnnounceLinkText(e.target.value)} />
-                 </div>
+           <div className="space-y-6">
+             <div className="bg-owl-800 rounded-xl border border-white/10 p-6">
+                <h3 className="text-xl font-bold text-gold-500 mb-4 flex items-center gap-2"><MessageSquare size={20}/> Создать Рассылку</h3>
+                <form onSubmit={handleSendAnnouncement} className="space-y-4">
+                   <input className="w-full bg-owl-900 border border-white/10 rounded p-3 text-white focus:border-gold-500 outline-none" placeholder="Заголовок новости" value={announceTitle} onChange={e => setAnnounceTitle(e.target.value)} required />
+                   <textarea className="w-full bg-owl-900 border border-white/10 rounded p-3 text-white focus:border-gold-500 outline-none" rows={4} placeholder="Текст сообщения для всех пользователей..." value={announceMsg} onChange={e => setAnnounceMsg(e.target.value)} required />
+                   
+                   <div className="flex flex-col sm:flex-row gap-2">
+                      <input className="flex-1 bg-owl-900 border border-white/10 rounded p-2 text-sm text-white focus:border-gold-500 outline-none" placeholder="Ссылка (https://...)" value={announceLink} onChange={e => setAnnounceLink(e.target.value)} />
+                      <input className="sm:w-1/3 bg-owl-900 border border-white/10 rounded p-2 text-sm text-white focus:border-gold-500 outline-none" placeholder="Текст кнопки" value={announceLinkText} onChange={e => setAnnounceLinkText(e.target.value)} />
+                   </div>
 
-                 <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer hover:text-white">
-                       <Paperclip size={16}/> {announceImage ? announceImage.name : "Прикрепить изображение"}
-                       <input type="file" className="hidden" accept="image/*" onChange={e => setAnnounceImage(e.target.files?.[0] || null)} />
-                    </label>
-                    {announceImage && <button type="button" onClick={() => setAnnounceImage(null)} className="text-red-400 text-xs hover:underline">Удалить</button>}
-                 </div>
+                   <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer hover:text-white">
+                         <Paperclip size={16}/> {announceImage ? announceImage.name : "Прикрепить изображение"}
+                         <input type="file" className="hidden" accept="image/*" onChange={e => setAnnounceImage(e.target.files?.[0] || null)} />
+                      </label>
+                      {announceImage && <button type="button" onClick={() => setAnnounceImage(null)} className="text-red-400 text-xs hover:underline">Удалить</button>}
+                   </div>
 
-                 <button type="submit" disabled={sendingAnnounce} className="w-full bg-gold-600 hover:bg-gold-500 text-owl-900 font-bold py-2 rounded flex justify-center items-center gap-2">
-                    {sendingAnnounce ? <Loader2 className="animate-spin"/> : <SendIcon size={18}/>} Отправить всем
-                 </button>
-              </form>
+                   <button type="submit" disabled={sendingAnnounce} className="w-full bg-gold-600 hover:bg-gold-500 text-owl-900 font-bold py-2 rounded flex justify-center items-center gap-2">
+                      {sendingAnnounce ? <Loader2 className="animate-spin"/> : <SendIcon size={18}/>} Отправить всем
+                   </button>
+                </form>
+             </div>
+             
+             {/* SENT ANNOUNCEMENTS STATS */}
+             <div className="bg-owl-800 rounded-xl border border-white/10 p-6">
+                <h3 className="text-lg font-bold text-white mb-4">Статистика Рассылок</h3>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                   {announcements.map((a: any) => (
+                      <div key={a.id} className="bg-owl-900/50 p-3 rounded border border-white/5 flex justify-between items-center">
+                         <span className="text-sm text-gray-300 line-clamp-1 flex-1 pr-2">{a.title}</span>
+                         <div className="flex items-center gap-1 text-xs text-gold-500 bg-gold-500/10 px-2 py-1 rounded">
+                            <Activity size={12} /> {a.views || 0} просмотров
+                         </div>
+                      </div>
+                   ))}
+                   {announcements.length === 0 && <p className="text-gray-500 text-sm">Нет отправленных новостей</p>}
+                </div>
+             </div>
            </div>
 
            {/* POLLS MANAGEMENT */}
@@ -468,14 +524,37 @@ export const AdminDashboard: React.FC = () => {
 
               {/* ACTIVE POLLS LIST */}
               <div className="bg-owl-800 rounded-xl border border-white/10 p-6">
-                 <h3 className="text-lg font-bold text-white mb-4">Активные опросы</h3>
-                 <div className="space-y-3">
-                    {polls.map(poll => (
-                       <div key={poll.id} className="bg-owl-900/50 p-4 rounded border border-white/5 flex justify-between items-center">
-                          <span className="text-white font-medium">{poll.question}</span>
-                          <button onClick={() => handleViewPollDetails(poll.id)} className="text-xs bg-gold-600/20 text-gold-500 px-3 py-1 rounded hover:bg-gold-600/30">Результаты</button>
-                       </div>
-                    ))}
+                 <h3 className="text-lg font-bold text-white mb-4">Активные опросы (Результаты)</h3>
+                 <div className="space-y-4">
+                    {polls.map(poll => {
+                       // Admin sees results immediately without needing to vote
+                       const totalVotes = (Object.values(poll.results || {}) as number[]).reduce((a, b) => a + b, 0);
+                       return (
+                          <div key={poll.id} className="bg-owl-900/50 p-4 rounded border border-white/5">
+                             <div className="flex justify-between items-start mb-2">
+                                <span className="text-white font-medium text-sm">{poll.question}</span>
+                                <button onClick={() => handleViewPollDetails(poll.id)} className="text-xs bg-gold-600/20 text-gold-500 px-2 py-1 rounded hover:bg-gold-600/30 whitespace-nowrap ml-2">Детали</button>
+                             </div>
+                             
+                             {/* Mini Results Bar */}
+                             <div className="space-y-1 mt-2">
+                               {poll.options.map((opt, idx) => {
+                                  const votes = poll.results?.[idx] || 0;
+                                  const percent = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                                  return (
+                                     <div key={idx} className="flex items-center gap-2 text-xs text-gray-400">
+                                        <div className="w-16 truncate text-right">{opt}</div>
+                                        <div className="flex-1 h-1.5 bg-owl-900 rounded-full overflow-hidden">
+                                           <div className="h-full bg-gold-500" style={{ width: `${percent}%` }}></div>
+                                        </div>
+                                        <div className="w-6">{votes}</div>
+                                     </div>
+                                  )
+                               })}
+                             </div>
+                          </div>
+                       )
+                    })}
                     {polls.length === 0 && <p className="text-gray-500 text-sm">Нет активных опросов</p>}
                  </div>
               </div>
@@ -493,13 +572,13 @@ export const AdminDashboard: React.FC = () => {
                onClick={() => setSelectedUser(user)}
                className="bg-owl-800 p-6 rounded-xl border border-white/10 shadow-lg flex flex-col items-center text-center cursor-pointer hover:border-gold-500/50 transition group"
              >
-                <div className="w-24 h-24 rounded-full bg-owl-900 border-2 border-gold-500/30 mb-4 overflow-hidden group-hover:scale-105 transition">
+                <div className="w-24 h-24 rounded-full bg-owl-900 border-2 border-gold-500/30 mb-4 overflow-hidden group-hover:scale-105 transition flex-shrink-0">
                    {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover" /> : <Users className="w-full h-full p-6 text-gray-600"/>}
                 </div>
-                <h3 className="text-xl font-bold text-white mb-1 group-hover:text-gold-500 transition">{user.fullName || 'Без имени'}</h3>
-                {user.telegram && <div className="text-blue-400 text-sm mb-2">@{user.telegram}</div>}
+                <h3 className="text-xl font-bold text-white mb-1 group-hover:text-gold-500 transition line-clamp-1">{user.fullName || 'Без имени'}</h3>
+                {user.telegram && <div className="text-blue-400 text-sm mb-2 line-clamp-1">@{user.telegram}</div>}
                 
-                <div className="mt-auto pt-4 flex gap-2">
+                <div className="mt-auto pt-4 flex gap-2 flex-wrap justify-center">
                    {user.isExpert && <span className="text-xs bg-purple-900 text-purple-200 px-2 py-1 rounded border border-purple-500/30">Знаток</span>}
                    <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded border border-gray-600">{EXPERT_STATUS_MAP[user.expertStatus]}</span>
                 </div>
@@ -513,7 +592,7 @@ export const AdminDashboard: React.FC = () => {
       {activeTab === 'questions' && (
         <>
           {/* Filters */}
-          <div className="flex flex-col xl:flex-row gap-4 mb-8 bg-owl-900/50 p-4 rounded-xl border border-white/5">
+          <div className="flex flex-col lg:flex-row gap-4 mb-8 bg-owl-900/50 p-4 rounded-xl border border-white/5">
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setStatusFilter('ALL')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${statusFilter === 'ALL' ? 'bg-white text-owl-900' : 'bg-owl-800 text-gray-400'}`}>Все</button>
               <button onClick={() => setStatusFilter(QuestionStatus.PENDING)} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${statusFilter === QuestionStatus.PENDING ? 'bg-yellow-600 text-white' : 'bg-owl-800 text-gray-400'}`}>Новые</button>
@@ -521,9 +600,9 @@ export const AdminDashboard: React.FC = () => {
               <button onClick={() => setStatusFilter(QuestionStatus.SELECTED)} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${statusFilter === QuestionStatus.SELECTED ? 'bg-purple-600 text-white' : 'bg-owl-800 text-gray-400'}`}>На игру</button>
               <button onClick={() => setStatusFilter(QuestionStatus.PLAYED)} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${statusFilter === QuestionStatus.PLAYED ? 'bg-gold-600 text-owl-900' : 'bg-owl-800 text-gray-400'}`}>Сыгранные</button>
             </div>
-            <div className="xl:ml-auto flex items-center gap-2">
-              <span className="text-gray-500 text-sm">Игра:</span>
-              <select value={gameFilter} onChange={e => setGameFilter(e.target.value)} className="bg-owl-800 border border-white/10 rounded-md text-sm text-white px-3 py-1.5 outline-none focus:border-gold-500">
+            <div className="lg:ml-auto flex items-center gap-2">
+              <span className="text-gray-500 text-sm hidden sm:inline">Игра:</span>
+              <select value={gameFilter} onChange={e => setGameFilter(e.target.value)} className="w-full sm:w-auto bg-owl-800 border border-white/10 rounded-md text-sm text-white px-3 py-1.5 outline-none focus:border-gold-500">
                 <option value="ALL">Все игры</option>
                 <option value="NONE">Без игры</option>
                 {games.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -553,14 +632,14 @@ export const AdminDashboard: React.FC = () => {
                                  if(u) setSelectedUser(u);
                               }}>{q.authorName}</span>
                               {q.telegram && <a href={`https://t.me/${q.telegram}`} target="_blank" className="flex items-center gap-1 text-blue-400 hover:underline"><SendIcon size={12}/> {q.telegram}</a>}
-                              <span className="text-xs text-gray-600">{q.authorEmail}</span>
+                              <span className="text-xs text-gray-600 hidden sm:inline">{q.authorEmail}</span>
                             </div>
                          </div>
                       </div>
 
                       {/* Game Selector */}
-                      <div className="flex flex-col items-end gap-2 min-w-[150px]">
-                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${q.status === 'PENDING' ? 'bg-yellow-900 text-yellow-200' : 'bg-gray-700 text-gray-300'}`}>{STATUS_MAP[q.status]}</span>
+                      <div className="flex flex-col items-end gap-2 w-full md:w-auto min-w-[150px]">
+                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase self-start md:self-end ${q.status === 'PENDING' ? 'bg-yellow-900 text-yellow-200' : 'bg-gray-700 text-gray-300'}`}>{STATUS_MAP[q.status]}</span>
                          {q.status !== QuestionStatus.PENDING && (
                            <select className="bg-owl-900 text-xs text-gold-500 border border-gold-500/30 rounded px-2 py-1 outline-none w-full" value={q.gameId || 'NONE'} onChange={(e) => handleAssignGame(q, e.target.value)}>
                              <option value="NONE">-- Без игры --</option>
@@ -574,7 +653,7 @@ export const AdminDashboard: React.FC = () => {
                     {q.imageUrls && q.imageUrls.length > 0 && (
                       <div className="flex gap-3 mb-4 overflow-x-auto pb-2">
                         {q.imageUrls.map((url, i) => (
-                           <div key={i} className="relative group w-32 h-32 rounded-lg overflow-hidden border border-white/20">
+                           <div key={i} className="relative group w-32 h-32 rounded-lg overflow-hidden border border-white/20 flex-shrink-0">
                              <img src={url} className="w-full h-full object-cover" />
                              <a href={url} target="_blank" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white"><Eye size={20}/></a>
                            </div>
@@ -597,9 +676,9 @@ export const AdminDashboard: React.FC = () => {
                     <div className="flex flex-wrap gap-2 pt-4 border-t border-white/5 items-center">
                       {(q.status === QuestionStatus.APPROVED || q.status === QuestionStatus.SELECTED) && (
                         <div className="flex gap-1 mr-4 border-r border-white/10 pr-4">
-                           <button onClick={() => toggleTag(q, 'BLACK_BOX')} className={`p-1.5 rounded flex items-center gap-1 text-xs font-bold ${q.tags?.includes('BLACK_BOX') ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}><Box size={14}/> {TAG_MAP['BLACK_BOX']}</button>
-                           <button onClick={() => toggleTag(q, 'BLITZ')} className={`p-1.5 rounded flex items-center gap-1 text-xs font-bold ${q.tags?.includes('BLITZ') ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-yellow-500'}`}><Zap size={14}/> {TAG_MAP['BLITZ']}</button>
-                           <button onClick={() => toggleTag(q, 'SUPER_BLITZ')} className={`p-1.5 rounded flex items-center gap-1 text-xs font-bold ${q.tags?.includes('SUPER_BLITZ') ? 'bg-red-500 text-white' : 'text-gray-500 hover:text-red-500'}`}><Flame size={14}/> {TAG_MAP['SUPER_BLITZ']}</button>
+                           <button onClick={() => toggleTag(q, 'BLACK_BOX')} className={`p-1.5 rounded flex items-center gap-1 text-xs font-bold ${q.tags?.includes('BLACK_BOX') ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}><Box size={14}/> <span className="hidden sm:inline">{TAG_MAP['BLACK_BOX']}</span><span className="sm:hidden">ЧЯ</span></button>
+                           <button onClick={() => toggleTag(q, 'BLITZ')} className={`p-1.5 rounded flex items-center gap-1 text-xs font-bold ${q.tags?.includes('BLITZ') ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-yellow-500'}`}><Zap size={14}/> <span className="hidden sm:inline">{TAG_MAP['BLITZ']}</span><span className="sm:hidden">Блиц</span></button>
+                           <button onClick={() => toggleTag(q, 'SUPER_BLITZ')} className={`p-1.5 rounded flex items-center gap-1 text-xs font-bold ${q.tags?.includes('SUPER_BLITZ') ? 'bg-red-500 text-white' : 'text-gray-500 hover:text-red-500'}`}><Flame size={14}/> <span className="hidden sm:inline">{TAG_MAP['SUPER_BLITZ']}</span><span className="sm:hidden">СБ</span></button>
                         </div>
                       )}
 
@@ -623,11 +702,11 @@ export const AdminDashboard: React.FC = () => {
                             {q.status === QuestionStatus.PLAYED && (
                                <div className="flex items-center bg-owl-900 rounded-lg p-1 border border-white/10">
                                   <button onClick={() => handleToggleTaken(q)} className={`px-3 py-1 rounded text-xs font-bold transition flex items-center gap-1 ${q.isAnsweredCorrectly ? 'bg-red-600 text-white' : 'text-gray-500 hover:text-white'}`}>
-                                    <ThumbsUp size={12} /> Знатоки (1:0)
+                                    <ThumbsUp size={12} /> Знатоки
                                   </button>
                                   <div className="w-px h-4 bg-white/10 mx-1"></div>
                                   <button onClick={() => handleToggleTaken(q)} className={`px-3 py-1 rounded text-xs font-bold transition flex items-center gap-1 ${q.isAnsweredCorrectly === false ? 'bg-gold-500 text-owl-900' : 'text-gray-500 hover:text-white'}`}>
-                                    <ThumbsDown size={12} /> Зрители (0:1)
+                                    <ThumbsDown size={12} /> Зрители
                                   </button>
                                </div>
                             )}
