@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { saveQuestion, uploadImage } from '../services/storageService';
 import { Send, Loader2, Paperclip, X, Image as ImageIcon } from 'lucide-react';
@@ -22,17 +23,30 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
     if (!e.target.files || e.target.files.length === 0) return;
     
     setUploading(true);
+    // Explicitly cast to File[] via Array.from to avoid TS iteration errors
     const files = Array.from(e.target.files) as File[];
     
+    const newImages: string[] = [];
+
     for (const file of files) {
-      const url = await uploadImage(file);
-      if (url) {
-        setAttachedImages(prev => [...prev, url]);
-      } else {
-        alert("Ошибка загрузки файла " + file.name);
+      try {
+        const url = await uploadImage(file);
+        if (url) {
+          newImages.push(url);
+        } else {
+          // If one fails, we just alert but continue others
+          alert(`Не удалось загрузить файл: ${file.name}`);
+        }
+      } catch (err) {
+        console.error(err);
       }
     }
+
+    setAttachedImages(prev => [...prev, ...newImages]);
     setUploading(false);
+    
+    // Reset input so the same file can be selected again if needed
+    e.target.value = '';
   };
 
   const removeImage = (index: number) => {
@@ -62,8 +76,6 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
         setAttachedImages([]);
         if (onSuccess) setTimeout(onSuccess, 2000);
         else setTimeout(() => setSuccess(false), 8000);
-      } else {
-        alert("Ошибка связи с сервером. Попробуйте позже.");
       }
     } catch (error) {
       console.error(error);
@@ -86,8 +98,8 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
         <form onSubmit={handleSubmit} className="space-y-6">
           
           <div className="bg-owl-900/50 p-4 rounded-lg border border-white/5 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-gold-600 flex items-center justify-center text-owl-900 font-bold overflow-hidden">
-                {userProfile.avatarUrl ? <img src={userProfile.avatarUrl} alt="" className="w-full h-full object-cover"/> : userProfile.fullName?.[0] || 'U'}
+             <div className="w-10 h-10 rounded-full bg-gold-600 flex items-center justify-center text-owl-900 font-bold overflow-hidden border border-gold-500/50">
+                {userProfile.avatarUrl ? <img src={userProfile.avatarUrl} alt="" className="w-full h-full object-cover"/> : (userProfile.fullName?.[0] || 'U')}
              </div>
              <div>
                <div className="text-sm text-gray-400">Отправитель:</div>
@@ -132,6 +144,7 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
                  <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
               </label>
             </div>
+            <p className="text-xs text-gray-500">Можно прикрепить несколько фото.</p>
           </div>
 
           <div>

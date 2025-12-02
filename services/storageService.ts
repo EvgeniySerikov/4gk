@@ -1,5 +1,5 @@
 
-import { Question, QuestionStatus, Notification, NotificationChannel, Game, QuestionTag, UserProfile } from "../types";
+import { Question, QuestionStatus, Notification, NotificationChannel, Game, QuestionTag, UserProfile, Announcement, Poll, PollVoteDetail } from "../types";
 import { sendStatusEmail } from "./emailService";
 import { supabase, isSupabaseConfigured } from "./supabaseClient";
 import { CONFIG } from "../config";
@@ -9,21 +9,40 @@ import { CONFIG } from "../config";
 export const uploadImage = async (file: File): Promise<string | null> => {
   if (!isSupabaseConfigured()) return null;
   
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-  const filePath = `${fileName}`;
+  try {
+    const { data: userData } = await supabase!.auth.getUser();
+    const userId = userData.user?.id;
 
-  const { error: uploadError } = await supabase!.storage
-    .from('images')
-    .upload(filePath, file);
+    if (!userId) {
+      console.error("User not authenticated");
+      return null;
+    }
 
-  if (uploadError) {
-    console.error('Error uploading image:', uploadError);
+    // Sanitize filename: remove non-ascii chars to prevent Supabase errors
+    const fileExt = file.name.split('.').pop();
+    const cleanName = file.name.replace(/[^\x00-\x7F]/g, "").replace(/[^a-zA-Z0-9]/g, '_');
+    const fileName = `${Date.now()}_${cleanName}.${fileExt}`;
+    
+    // Store in user-specific folder to avoid collisions and permission issues
+    const filePath = `${userId}/${fileName}`;
+
+    const { error: uploadError } = await supabase!.storage
+      .from('images')
+      .upload(filePath, file, {
+        upsert: true 
+      });
+
+    if (uploadError) {
+      console.error('Error uploading image:', uploadError);
+      return null;
+    }
+
+    const { data } = supabase!.storage.from('images').getPublicUrl(filePath);
+    return data.publicUrl;
+  } catch (error) {
+    console.error("Exception uploading image:", error);
     return null;
   }
-
-  const { data } = supabase!.storage.from('images').getPublicUrl(filePath);
-  return data.publicUrl;
 };
 
 // --- PROFILES ---
@@ -38,7 +57,6 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
     .single();
 
   if (error) {
-    // If profile doesn't exist yet, return null (it might be created via trigger later or manually)
     return null;
   }
 
@@ -55,17 +73,22 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 export const updateUserProfile = async (userId: string, updates: Partial<UserProfile>): Promise<boolean> => {
   if (!isSupabaseConfigured()) return false;
 
-  const dbUpdates = {
-    full_name: updates.fullName,
-    telegram: updates.telegram,
-    avatar_url: updates.avatarUrl,
+  const dbUpdates: any = {
+    id: userId, // Required for upsert
     updated_at: new Date().toISOString()
   };
+  
+  if (updates.fullName !== undefined) dbUpdates.full_name = updates.fullName;
+  if (updates.telegram !== undefined) dbUpdates.telegram = updates.telegram;
+  if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+  if (updates.expertStatus !== undefined) dbUpdates.expert_status = updates.expertStatus;
+  if (updates.isExpert !== undefined) dbUpdates.is_expert = updates.isExpert;
 
+  // Use UPSERT: updates if exists, inserts if not
   const { error } = await supabase!
     .from('profiles')
-    .update(dbUpdates)
-    .eq('id', userId);
+    .upsert(dbUpdates)
+    .select();
 
   if (error) {
     console.error('Error updating profile:', error);
@@ -77,8 +100,6 @@ export const updateUserProfile = async (userId: string, updates: Partial<UserPro
 export const getAllUsers = async (): Promise<UserProfile[]> => {
   if (!isSupabaseConfigured()) return [];
 
-  // Join with auth.users is tricky via client, so we fetch profiles and maybe map emails if possible via admin API. 
-  // For standard client, we just get profiles.
   const { data, error } = await supabase!
     .from('profiles')
     .select('*');
@@ -113,18 +134,28 @@ export const getGames = async (): Promise<Game[]> => {
   return (data || []).map((g: any) => ({
     id: g.id,
     name: g.name,
-    date: Number(g.date)
+    date: Number(g.date),
+    expertIds: g.expert_ids || []
   }));
 };
 
 export const saveGame = async (name: string): Promise<Game | null> => {
   if (!isSupabaseConfigured()) return null;
 
-  const newGame = { name, date: Date.now() };
+  const newGame = { name, date: Date.now(), expert_ids: [] };
   const { data, error } = await supabase!.from('games').insert([newGame]).select().single();
 
   if (error) return null;
-  return { id: data.id, name: data.name, date: Number(data.date) };
+  return { id: data.id, name: data.name, date: Number(data.date), expertIds: [] };
+};
+
+export const updateGameExperts = async (gameId: string, expertIds: string[]): Promise<boolean> => {
+  if (!isSupabaseConfigured()) return false;
+  const { error } = await supabase!
+    .from('games')
+    .update({ expert_ids: expertIds })
+    .eq('id', gameId);
+  return !error;
 };
 
 // --- QUESTIONS MANAGEMENT ---
@@ -139,8 +170,6 @@ export const getQuestions = async (): Promise<Question[]> => {
 
   if (error) return [];
 
-  // Fetch profiles to get current avatars if needed, or rely on what was saved
-  // For now, simple mapping
   return (data || []).map((q: any) => mapDbQuestionToApp(q));
 };
 
@@ -164,7 +193,7 @@ const mapDbQuestionToApp = (q: any): Question => ({
   authorName: q.author_name,
   authorEmail: q.author_email,
   telegram: q.telegram,
-  authorAvatarUrl: q.author_avatar_url, // We will save snapshot of avatar
+  authorAvatarUrl: q.author_avatar_url,
   questionText: q.question_text,
   answerText: q.answer_text,
   imageUrls: q.image_urls || [],
@@ -182,11 +211,10 @@ export const saveQuestion = async (questionData: Omit<Question, 'id' | 'status' 
     return false;
   }
 
-  // Get author avatar URL if profile exists
   let avatarUrl = questionData.authorAvatarUrl;
-  if (!avatarUrl && questionData.userId) {
+  if (questionData.userId) {
     const profile = await getUserProfile(questionData.userId);
-    if (profile) avatarUrl = profile.avatarUrl;
+    if (profile && profile.avatarUrl) avatarUrl = profile.avatarUrl;
   }
 
   const dbQuestion = {
@@ -200,13 +228,24 @@ export const saveQuestion = async (questionData: Omit<Question, 'id' | 'status' 
     image_urls: questionData.imageUrls,
     status: QuestionStatus.PENDING,
     submission_date: Date.now(),
-    tags: []
+    tags: [],
+    is_answered_correctly: null
   };
 
   const { error } = await supabase!.from('questions').insert([dbQuestion]);
 
   if (error) {
     console.error('Error saving question:', error);
+    if (error.message?.includes('author_avatar_url')) {
+       const { author_avatar_url, ...fallbackQ } = dbQuestion;
+       const { error: fallbackError } = await supabase!.from('questions').insert([fallbackQ]);
+       if (fallbackError) {
+         alert("Ошибка сохранения: " + fallbackError.message);
+         return false;
+       }
+       return true; 
+    }
+    alert("Ошибка сохранения: " + error.message);
     return false;
   }
 
@@ -264,4 +303,120 @@ export const updateQuestionStatus = async (id: string, status: QuestionStatus, f
 
 export const getNotifications = async (): Promise<Notification[]> => {
   return [];
+};
+
+// --- ANNOUNCEMENTS & POLLS (NEW) ---
+
+export const createAnnouncement = async (title: string, message: string, imageUrl?: string, linkUrl?: string, linkText?: string): Promise<boolean> => {
+  if (!isSupabaseConfigured()) return false;
+  
+  const { error } = await supabase!.from('announcements').insert([{
+    title, message, image_url: imageUrl, link_url: linkUrl, link_text: linkText, created_at: new Date().toISOString()
+  }]);
+  
+  return !error;
+};
+
+export const getAnnouncements = async (): Promise<Announcement[]> => {
+  if (!isSupabaseConfigured()) return [];
+  
+  const { data, error } = await supabase!
+    .from('announcements')
+    .select('*')
+    .order('created_at', { ascending: false });
+    
+  if (error) return [];
+  
+  return data.map((a: any) => ({
+    id: a.id,
+    title: a.title,
+    message: a.message,
+    imageUrl: a.image_url,
+    linkUrl: a.link_url,
+    linkText: a.link_text,
+    createdAt: new Date(a.created_at).getTime()
+  }));
+};
+
+export const createPoll = async (question: string, options: string[]): Promise<boolean> => {
+  if (!isSupabaseConfigured()) return false;
+  
+  const { error } = await supabase!.from('polls').insert([{
+    question, options, created_at: new Date().toISOString()
+  }]);
+  
+  return !error;
+};
+
+export const getActivePolls = async (userId?: string): Promise<Poll[]> => {
+  if (!isSupabaseConfigured()) return [];
+  
+  // Fetch polls
+  const { data: polls, error } = await supabase!
+    .from('polls')
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+    
+  if (error || !polls) return [];
+  
+  // Calculate results locally (simpler than complex SQL grouping via client)
+  // Fetch all votes for active polls
+  const pollIds = polls.map((p: any) => p.id);
+  const { data: votes } = await supabase!
+    .from('poll_votes')
+    .select('*')
+    .in('poll_id', pollIds);
+    
+  return polls.map((p: any) => {
+    const pVotes = votes?.filter((v: any) => v.poll_id === p.id) || [];
+    const results: {[key: number]: number} = {};
+    p.options?.forEach((_: any, idx: number) => results[idx] = 0);
+    pVotes.forEach((v: any) => {
+      results[v.option_index] = (results[v.option_index] || 0) + 1;
+    });
+    
+    const userVote = userId ? pVotes.find((v: any) => v.user_id === userId)?.option_index : undefined;
+    
+    return {
+      id: p.id,
+      question: p.question,
+      options: p.options || [],
+      isActive: p.is_active,
+      createdAt: new Date(p.created_at).getTime(),
+      results,
+      userVoteIndex: userVote
+    };
+  });
+};
+
+export const votePoll = async (pollId: string, userId: string, optionIndex: number): Promise<boolean> => {
+  if (!isSupabaseConfigured()) return false;
+  
+  const { error } = await supabase!.from('poll_votes').insert([{
+    poll_id: pollId,
+    user_id: userId,
+    option_index: optionIndex
+  }]);
+  
+  return !error;
+};
+
+export const getPollVotesDetails = async (pollId: string): Promise<PollVoteDetail[]> => {
+  if (!isSupabaseConfigured()) return [];
+
+  // Fetch votes with user profile data
+  const { data, error } = await supabase!
+    .from('poll_votes')
+    .select('option_index, user_id, profiles(full_name, avatar_url)')
+    .eq('poll_id', pollId);
+
+  if (error || !data) return [];
+
+  return data.map((v: any) => ({
+    userId: v.user_id,
+    optionIndex: v.option_index,
+    fullName: v.profiles?.full_name || 'Аноним',
+    avatarUrl: v.profiles?.avatar_url || ''
+  }));
 };

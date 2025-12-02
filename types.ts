@@ -16,6 +16,7 @@ export interface Game {
   id: string;
   name: string;
   date: number;
+  expertIds?: string[]; // IDs of users selected as experts for this game
 }
 
 export type QuestionTag = 'BLACK_BOX' | 'BLITZ' | 'SUPER_BLITZ';
@@ -60,6 +61,35 @@ export interface Notification {
   message: string;
   date: number;
   read: boolean;
+}
+
+// --- NEW TYPES FOR COMMUNICATION ---
+
+export interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  imageUrl?: string;
+  linkUrl?: string;
+  linkText?: string;
+  createdAt: number;
+}
+
+export interface Poll {
+  id: string;
+  question: string;
+  options: string[];
+  isActive: boolean;
+  createdAt: number;
+  userVoteIndex?: number; // Index of option user voted for (frontend only)
+  results?: { [key: number]: number }; // Count of votes per index (frontend only)
+}
+
+export interface PollVoteDetail {
+  userId: string;
+  fullName: string;
+  avatarUrl: string;
+  optionIndex: number;
 }
 
 export interface AppSettings {

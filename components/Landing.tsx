@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { UserRole } from '../types';
-import { User, Lock, ArrowRight } from 'lucide-react';
+import { User, Lock, ArrowRight, Users } from 'lucide-react';
 import { Auth } from './Auth';
 
 interface LandingProps {
@@ -37,7 +37,7 @@ export const Landing: React.FC<LandingProps> = ({ onAdminLogin }) => {
             <span className="text-gold-500">Батуми</span>
           </h1>
           <p className="text-gray-400 text-lg">
-            Официальный портал приема вопросов от телезрителей. Создайте личный кабинет, чтобы отправлять вопросы и следить за их судьбой.
+            Официальный портал интеллектуального клуба. Участвуйте в жизни сообщества, отправляйте вопросы и играйте за столом.
           </p>
         </div>
 
@@ -52,12 +52,12 @@ export const Landing: React.FC<LandingProps> = ({ onAdminLogin }) => {
               >
                 <div className="flex justify-between items-center mb-4">
                   <div className="bg-blue-500/20 p-3 rounded-lg text-blue-400">
-                    <User size={24} />
+                    <Users size={24} />
                   </div>
                   <ArrowRight className="text-gray-600 group-hover:text-white transition" />
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Я — Телезритель</h2>
-                <p className="text-gray-400">Войти в личный кабинет или зарегистрироваться.</p>
+                <h2 className="text-2xl font-bold text-white mb-2 leading-tight">Отправить вопрос<br/>или стать знатоком</h2>
+                <p className="text-gray-400">Вход в личный кабинет члена клуба.</p>
               </div>
 
               <div 
