@@ -18,8 +18,9 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
   const [questionText, setQuestionText] = useState('');
   const [answerText, setAnswerText] = useState('');
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [attachedAnswerImages, setAttachedAnswerImages] = useState<string[]>([]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'QUESTION' | 'ANSWER') => {
     if (!e.target.files || e.target.files.length === 0) return;
     
     setUploading(true);
@@ -34,7 +35,6 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
         if (url) {
           newImages.push(url);
         } else {
-          // If one fails, we just alert but continue others
           alert(`Не удалось загрузить файл: ${file.name}`);
         }
       } catch (err) {
@@ -42,15 +42,21 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
       }
     }
 
-    setAttachedImages(prev => [...prev, ...newImages]);
+    if (target === 'QUESTION') {
+       setAttachedImages(prev => [...prev, ...newImages]);
+    } else {
+       setAttachedAnswerImages(prev => [...prev, ...newImages]);
+    }
     setUploading(false);
-    
-    // Reset input so the same file can be selected again if needed
     e.target.value = '';
   };
 
-  const removeImage = (index: number) => {
-    setAttachedImages(prev => prev.filter((_, i) => i !== index));
+  const removeImage = (index: number, target: 'QUESTION' | 'ANSWER') => {
+    if (target === 'QUESTION') {
+       setAttachedImages(prev => prev.filter((_, i) => i !== index));
+    } else {
+       setAttachedAnswerImages(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,7 +72,8 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
         authorAvatarUrl: userProfile.avatarUrl,
         questionText: questionText,
         answerText: answerText,
-        imageUrls: attachedImages
+        imageUrls: attachedImages,
+        answerImageUrls: attachedAnswerImages
       });
       
       if (result) {
@@ -74,6 +81,7 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
         setQuestionText('');
         setAnswerText('');
         setAttachedImages([]);
+        setAttachedAnswerImages([]);
         if (onSuccess) setTimeout(onSuccess, 2000);
         else setTimeout(() => setSuccess(false), 8000);
       }
@@ -120,17 +128,16 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
             />
           </div>
 
-          {/* Image Attachments */}
+          {/* Question Images */}
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Изображения (для фото-вопросов)</label>
-            
+            <label className="block text-sm font-medium text-gray-400 mb-2">Изображения к вопросу</label>
             <div className="flex flex-wrap gap-3 mb-3">
               {attachedImages.map((url, idx) => (
                 <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/20 group">
-                  <img src={url} alt="Attached" className="w-full h-full object-cover" />
+                  <img src={url} alt="Question Attachment" className="w-full h-full object-cover" />
                   <button 
                     type="button"
-                    onClick={() => removeImage(idx)}
+                    onClick={() => removeImage(idx, 'QUESTION')}
                     className="absolute top-0 right-0 bg-red-600 text-white p-0.5 opacity-0 group-hover:opacity-100 transition"
                   >
                     <X size={12} />
@@ -141,10 +148,9 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
               <label className="w-20 h-20 rounded-lg border-2 border-dashed border-white/20 hover:border-gold-500 flex flex-col items-center justify-center cursor-pointer transition text-gray-500 hover:text-gold-500">
                  {uploading ? <Loader2 className="animate-spin" size={20} /> : <Paperclip size={20} />}
                  <span className="text-[10px] mt-1">Добавить</span>
-                 <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+                 <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'QUESTION')} disabled={uploading} />
               </label>
             </div>
-            <p className="text-xs text-gray-500">Можно прикрепить несколько фото.</p>
           </div>
 
           <div>
@@ -157,6 +163,32 @@ export const ViewerForm: React.FC<ViewerFormProps> = ({ userProfile, userEmail, 
               value={answerText}
               onChange={e => setAnswerText(e.target.value)}
             />
+          </div>
+
+          {/* Answer Images */}
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">Изображения к ответу (скрыты от ведущего)</label>
+            <div className="flex flex-wrap gap-3 mb-3">
+              {attachedAnswerImages.map((url, idx) => (
+                <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/20 group">
+                  <img src={url} alt="Answer Attachment" className="w-full h-full object-cover" />
+                  <button 
+                    type="button"
+                    onClick={() => removeImage(idx, 'ANSWER')}
+                    className="absolute top-0 right-0 bg-red-600 text-white p-0.5 opacity-0 group-hover:opacity-100 transition"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              
+              <label className="w-20 h-20 rounded-lg border-2 border-dashed border-white/20 hover:border-gold-500 flex flex-col items-center justify-center cursor-pointer transition text-gray-500 hover:text-gold-500">
+                 {uploading ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
+                 <span className="text-[10px] mt-1">Ответ</span>
+                 <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'ANSWER')} disabled={uploading} />
+              </label>
+            </div>
+            <p className="text-xs text-gray-500">Эти фото увидит ведущий только когда нажмет "Показать ответ".</p>
           </div>
 
           <button

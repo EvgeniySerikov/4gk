@@ -13,14 +13,27 @@ interface NavigationProps {
 }
 
 export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, role, userEmail, onLogout }) => {
+  const logoUrl = "https://logo-icons.com/cdn/shop/files/3809-logo-1739064201.739.svg?v=1739224665";
+
   return (
     <nav className="bg-owl-800 border-b border-white/10 sticky top-0 z-50 shadow-lg">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gold-500 rounded-full flex items-center justify-center">
-               <span className="text-owl-900 font-serif font-bold text-xl">?</span>
-            </div>
+          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => window.location.hash = ''}>
+             {/* Logo using Mask to colorize black SVG to Gold */}
+             <div 
+               className="w-10 h-10 bg-gold-500"
+               style={{
+                 maskImage: `url(${logoUrl})`,
+                 maskSize: 'contain',
+                 maskRepeat: 'no-repeat',
+                 maskPosition: 'center',
+                 WebkitMaskImage: `url(${logoUrl})`,
+                 WebkitMaskSize: 'contain',
+                 WebkitMaskRepeat: 'no-repeat',
+                 WebkitMaskPosition: 'center'
+               }}
+             />
             <span className="text-xl font-serif font-bold text-gold-500 tracking-wider hidden sm:block">
               Что? Где? Когда?
             </span>

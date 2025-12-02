@@ -30,6 +30,8 @@ export interface UserProfile {
   avatarUrl: string;
   expertStatus: ExpertStatus;
   isExpert: boolean;
+  expertise?: string[]; // Areas of knowledge
+  wasCaptain?: boolean; // Has been a captain
 }
 
 export interface Question {
@@ -43,6 +45,7 @@ export interface Question {
   questionText: string;
   answerText: string;
   imageUrls?: string[]; // Ссылки на прикрепленные фото
+  answerImageUrls?: string[]; // Ссылки на прикрепленные фото к ответу
   
   status: QuestionStatus;
   submissionDate: number;
@@ -82,7 +85,9 @@ export interface Poll {
   options: string[];
   isActive: boolean;
   createdAt: number;
-  userVoteIndex?: number; // Index of option user voted for (frontend only)
+  endsAt?: number; // Timestamp when poll ends
+  allowMultiple?: boolean; // Allow selecting multiple options
+  userVoteIndices?: number[]; // Indices of options user voted for (frontend only)
   results?: { [key: number]: number }; // Count of votes per index (frontend only)
 }
 

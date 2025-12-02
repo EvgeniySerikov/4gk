@@ -1,18 +1,25 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserRole } from '../types';
 import { User, Lock, ArrowRight, Users } from 'lucide-react';
 import { Auth } from './Auth';
 
 interface LandingProps {
+  initialView?: 'INTRO' | 'ADMIN' | 'AUTH';
   onAdminLogin: () => void;
-  onViewerLogin: () => void; // Triggered after successful auth in the parent, but here we just show Auth component
+  onViewerLogin: () => void;
 }
 
-export const Landing: React.FC<LandingProps> = ({ onAdminLogin }) => {
-  const [viewState, setViewState] = useState<'INTRO' | 'ADMIN' | 'AUTH'>('INTRO');
+export const Landing: React.FC<LandingProps> = ({ initialView = 'INTRO', onAdminLogin }) => {
+  const [viewState, setViewState] = useState<'INTRO' | 'ADMIN' | 'AUTH'>(initialView);
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
+  
+  const logoUrl = "https://logo-icons.com/cdn/shop/files/3809-logo-1739064201.739.svg?v=1739224665";
+
+  useEffect(() => {
+    setViewState(initialView);
+  }, [initialView]);
 
   const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,8 +36,21 @@ export const Landing: React.FC<LandingProps> = ({ onAdminLogin }) => {
         
         {/* Intro Text */}
         <div className="text-center md:text-left space-y-6">
-          <div className="w-16 h-16 bg-gold-500 rounded-full flex items-center justify-center mx-auto md:mx-0 mb-6 shadow-[0_0_30px_rgba(234,179,8,0.3)]">
-               <span className="text-owl-900 font-serif font-bold text-4xl">?</span>
+          <div className="flex justify-center md:justify-start">
+             {/* Logo using Mask to colorize black SVG to Gold */}
+             <div 
+               className="w-32 h-32 bg-gold-500"
+               style={{
+                 maskImage: `url(${logoUrl})`,
+                 maskSize: 'contain',
+                 maskRepeat: 'no-repeat',
+                 maskPosition: 'center',
+                 WebkitMaskImage: `url(${logoUrl})`,
+                 WebkitMaskSize: 'contain',
+                 WebkitMaskRepeat: 'no-repeat',
+                 WebkitMaskPosition: 'center'
+               }}
+             />
           </div>
           <h1 className="text-4xl md:text-6xl font-serif font-bold text-white leading-tight">
             ЧГК <br/>
@@ -48,7 +68,7 @@ export const Landing: React.FC<LandingProps> = ({ onAdminLogin }) => {
             <>
               <div 
                 className="bg-owl-800 border border-white/10 p-8 rounded-2xl shadow-2xl hover:border-gold-500/30 transition group cursor-pointer" 
-                onClick={() => setViewState('AUTH')}
+                onClick={() => { setViewState('AUTH'); window.location.hash = 'cabinet'; }}
               >
                 <div className="flex justify-between items-center mb-4">
                   <div className="bg-blue-500/20 p-3 rounded-lg text-blue-400">
@@ -62,7 +82,7 @@ export const Landing: React.FC<LandingProps> = ({ onAdminLogin }) => {
 
               <div 
                 className="bg-owl-800 border border-white/5 p-6 rounded-2xl cursor-pointer hover:bg-owl-900 transition flex items-center gap-4 group"
-                onClick={() => setViewState('ADMIN')}
+                onClick={() => { setViewState('ADMIN'); window.location.hash = 'admin'; }}
               >
                 <Lock size={20} className="text-gray-500 group-hover:text-gold-500 transition" />
                 <span className="text-gray-400 font-medium group-hover:text-white transition">Вход для Ведущего</span>
@@ -76,7 +96,7 @@ export const Landing: React.FC<LandingProps> = ({ onAdminLogin }) => {
               <input 
                 autoFocus
                 type="password"
-                placeholder="Пароль (admin)"
+                placeholder="Пароль"
                 className={`w-full bg-owl-900 border ${error ? 'border-red-500' : 'border-white/10'} rounded-lg p-3 text-white mb-4 focus:outline-none focus:border-gold-500 transition`}
                 value={password}
                 onChange={e => {setError(false); setPassword(e.target.value)}}
@@ -87,7 +107,7 @@ export const Landing: React.FC<LandingProps> = ({ onAdminLogin }) => {
                 </button>
                 <button 
                   type="button" 
-                  onClick={() => {setViewState('INTRO'); setError(false); setPassword('')}}
+                  onClick={() => {setViewState('INTRO'); setError(false); setPassword(''); window.location.hash = ''; }}
                   className="px-4 py-3 text-gray-400 hover:text-white transition"
                 >
                   Отмена
@@ -100,7 +120,7 @@ export const Landing: React.FC<LandingProps> = ({ onAdminLogin }) => {
             <div className="animate-in fade-in slide-in-from-bottom-4">
                <Auth />
                <button 
-                  onClick={() => setViewState('INTRO')}
+                  onClick={() => { setViewState('INTRO'); window.location.hash = ''; }}
                   className="w-full text-center mt-4 text-gray-500 hover:text-white text-sm"
                >
                  Вернуться назад

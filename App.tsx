@@ -14,6 +14,19 @@ const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Check Hash for routing
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash === '#admin' && role !== 'ADMIN') {
+        // Just trigger re-render if needed, logic handled in render
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [role]);
+
   // Auth State Listener
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -44,6 +57,7 @@ const App: React.FC = () => {
   const handleAdminLogin = () => {
     setRole('ADMIN');
     setView('admin');
+    window.location.hash = 'admin';
   };
 
   const handleLogout = async () => {
@@ -53,18 +67,22 @@ const App: React.FC = () => {
     setRole('GUEST');
     setView('viewer');
     setUser(null);
+    window.location.hash = '';
   };
 
   if (loading) return <div className="min-h-screen bg-owl-900" />;
 
   // 1. Landing Page (Guest)
   if (role === 'GUEST') {
-    return <Landing onAdminLogin={handleAdminLogin} onViewerLogin={() => { /* Handled by Auth component inside Landing logic update below */ }} />;
+    // Determine initial view based on hash
+    const initialView = window.location.hash === '#admin' ? 'ADMIN' : (window.location.hash === '#cabinet' ? 'AUTH' : 'INTRO');
+    
+    return <Landing 
+      initialView={initialView}
+      onAdminLogin={handleAdminLogin} 
+      onViewerLogin={() => { /* Handled by Auth */ }} 
+    />;
   }
-
-  // 2. Auth Screen (If user clicked "Viewer" but not logged in)
-  // Actually, let's make Landing switch to Auth mode.
-  // We'll modify this structure slightly:
 
   return (
     <div className="min-h-screen pb-20 bg-pattern">
