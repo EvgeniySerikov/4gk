@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserRole } from '../types';
+import { CONFIG } from '../config';
 import { User, Lock, ArrowRight, Users } from 'lucide-react';
 import { Auth } from './Auth';
 
@@ -23,7 +24,7 @@ export const Landing: React.FC<LandingProps> = ({ initialView = 'INTRO', onAdmin
 
   const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'editor' || password === 'admin') {
+    if (password === CONFIG.adminPassword) {
       onAdminLogin();
     } else {
       setError(true);
@@ -93,7 +94,7 @@ export const Landing: React.FC<LandingProps> = ({ initialView = 'INTRO', onAdmin
           {viewState === 'ADMIN' && (
             <form onSubmit={handleAdminAuth} className="bg-owl-800 border border-gold-500/30 p-8 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4">
               <h3 className="text-xl font-bold text-white mb-4">Доступ для Ведущего</h3>
-              <input 
+              <input
                 autoFocus
                 type="password"
                 placeholder="Пароль"
