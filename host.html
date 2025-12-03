@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Кабинет ведущего — ЧГК Батуми</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="scripts/app.js" defer></script>
+</head>
+<body data-page="host">
+  <header class="topbar">
+    <div class="topbar__left">
+      <img src="https://logo-icons.com/cdn/shop/files/3809-logo-1739064201.739.svg?v=1739224665" class="brand__logo small recolor" alt="Логотип" />
+      <div>
+        <p class="eyebrow">ЧГК Батуми</p>
+        <h1>Кабинет ведущего</h1>
+      </div>
+    </div>
+    <div class="topbar__right">
+      <div class="pill pill--dark">Супер-пользователь</div>
+      <button class="btn ghost" data-action="logout">Выйти</button>
+    </div>
+  </header>
+
+  <main class="layout layout--wide">
+    <aside class="sidebar">
+      <nav class="nav">
+        <button class="nav__item active" data-section="questions">Вопросы</button>
+        <button class="nav__item" data-section="users">Пользователи</button>
+        <button class="nav__item" data-section="news">Новости</button>
+        <button class="nav__item" data-section="polls">Опросы</button>
+        <button class="nav__item" data-section="games">Игры</button>
+      </nav>
+      <div class="card card--glass" data-filter-panel>
+        <p class="eyebrow">Фильтр вопросов</p>
+        <label class="field">
+          <span>Статус</span>
+          <select data-filter-status>
+            <option value="all">Все</option>
+            <option value="pending">В обработке</option>
+            <option value="approved">Одобрен</option>
+            <option value="selected">Выбран на игру</option>
+            <option value="played">Сыгран</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Игра</span>
+          <select data-filter-game>
+            <option value="all">Любая</option>
+          </select>
+        </label>
+      </div>
+    </aside>
+
+    <section class="content">
+      <section class="panel" data-section-panel="questions">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Вопросы</p>
+            <h2>Одобрение, выбор для игры и теги</h2>
+          </div>
+        </div>
+        <div class="list" data-host-questions></div>
+      </section>
+
+      <section class="panel hidden" data-section-panel="users">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Участники клуба</p>
+            <h2>Карточки пользователей</h2>
+          </div>
+        </div>
+        <div class="list" data-host-users></div>
+      </section>
+
+      <section class="panel hidden" data-section-panel="news">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Новости</p>
+            <h2>Рассылки и просмотры</h2>
+          </div>
+        </div>
+        <div class="grid grid--2 grid--gap-sm">
+          <form class="card stack" data-news-form>
+            <label class="field">
+              <span>Заголовок</span>
+              <input type="text" name="title" required>
+            </label>
+            <label class="field">
+              <span>Текст</span>
+              <textarea name="text" rows="4" required></textarea>
+            </label>
+            <label class="field">
+              <span>Изображение (необязательно)</span>
+              <input type="file" name="image" accept="image/*">
+            </label>
+            <div class="grid grid--2 grid--gap-sm">
+              <label class="field">
+                <span>Текст кнопки</span>
+                <input type="text" name="buttonLabel" placeholder="Перейти">
+              </label>
+              <label class="field">
+                <span>Ссылка кнопки</span>
+                <input type="url" name="buttonUrl" placeholder="https://example.com">
+              </label>
+            </div>
+            <button class="btn primary" type="submit">Опубликовать новость</button>
+          </form>
+          <div class="card stack" data-host-news></div>
+        </div>
+      </section>
+
+      <section class="panel hidden" data-section-panel="polls">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Опросы</p>
+            <h2>Создание и сбор голосов</h2>
+          </div>
+        </div>
+        <div class="grid grid--2 grid--gap-sm">
+          <form class="card stack" data-poll-form>
+            <label class="field">
+              <span>Текст опроса</span>
+              <textarea name="text" rows="3" required></textarea>
+            </label>
+            <label class="field">
+              <span>Варианты (каждый с новой строки)</span>
+              <textarea name="options" rows="3" required></textarea>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="multi"> <span>Разрешить выбор нескольких вариантов</span>
+            </label>
+            <label class="field">
+              <span>Дата окончания</span>
+              <input type="date" name="deadline">
+            </label>
+            <button class="btn primary" type="submit">Создать опрос</button>
+          </form>
+          <div class="card stack" data-host-polls></div>
+        </div>
+      </section>
+
+      <section class="panel hidden" data-section-panel="games">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Игры</p>
+            <h2>Создание и команды</h2>
+          </div>
+        </div>
+        <div class="grid grid--2 grid--gap-sm">
+          <form class="card stack" data-game-form>
+            <label class="field">
+              <span>Название игры</span>
+              <input type="text" name="title" required>
+            </label>
+            <label class="field">
+              <span>Дата</span>
+              <input type="date" name="date" required>
+            </label>
+            <label class="field">
+              <span>Выбрать вопросы</span>
+              <select name="questions" multiple data-game-question-select></select>
+            </label>
+            <label class="field">
+              <span>Выбрать знатоков</span>
+              <select name="experts" multiple data-game-expert-select></select>
+            </label>
+            <label class="field">
+              <span>Капитан</span>
+              <select name="captain" data-game-captain-select></select>
+            </label>
+            <button class="btn primary" type="submit">Создать игру</button>
+          </form>
+          <div class="card stack" data-host-games></div>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

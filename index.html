@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ЧГК Батуми — вход</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="scripts/app.js" defer></script>
+</head>
+<body data-page="landing">
+  <header class="hero">
+    <div class="hero__brand">
+      <img src="https://logo-icons.com/cdn/shop/files/3809-logo-1739064201.739.svg?v=1739224665" alt="Логотип ЧГК Батуми" class="brand__logo recolor" />
+      <div>
+        <p class="eyebrow">Портал клуба</p>
+        <h1>ЧГК Батуми</h1>
+        <p class="lead">Единая платформа для знатоков, телезрителей и ведущего игры «Что? Где? Когда?»</p>
+      </div>
+    </div>
+    <div class="hero__cta">
+      <div class="tag">Новый дизайн · Светлый режим</div>
+      <p class="accent">Развивайте клуб, собирайте вопросы, выбирайте команды и держите всех в курсе.</p>
+    </div>
+  </header>
+
+  <main class="grid grid--2">
+    <section class="panel">
+      <h2>Вход или регистрация для знатоков и телезрителей</h2>
+      <div class="tabs" data-tabs>
+        <button class="tab active" data-tab-target="login">Войти</button>
+        <button class="tab" data-tab-target="signup">Зарегистрироваться</button>
+      </div>
+      <div class="tab-content" id="login" data-tab-panel>
+        <form class="stack" data-auth-form="login">
+          <label class="field">
+            <span>Email</span>
+            <input type="email" name="email" required placeholder="you@example.com">
+          </label>
+          <label class="field">
+            <span>Пароль</span>
+            <input type="password" name="password" required>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="remember"> <span>Запомнить меня на этом устройстве</span>
+          </label>
+          <button class="btn primary" type="submit">Войти в кабинет</button>
+          <p class="muted">После входа вы попадёте в свой личный кабинет с вопросами, уведомлениями и лентой клуба.</p>
+        </form>
+      </div>
+      <div class="tab-content hidden" id="signup" data-tab-panel>
+        <form class="stack" data-auth-form="signup">
+          <div class="grid grid--2 grid--gap-sm">
+            <label class="field">
+              <span>Имя</span>
+              <input type="text" name="name" required placeholder="Имя и фамилия">
+            </label>
+            <label class="field">
+              <span>Email</span>
+              <input type="email" name="email" required>
+            </label>
+          </div>
+          <div class="grid grid--2 grid--gap-sm">
+            <label class="field">
+              <span>Логин в Telegram</span>
+              <input type="text" name="telegram" required placeholder="@nickname">
+            </label>
+            <label class="field">
+              <span>Пароль</span>
+              <input type="password" name="password" required>
+            </label>
+          </div>
+          <label class="field">
+            <span>Сферы знаний (через запятую)</span>
+            <input type="text" name="tags" placeholder="история, музыка, технологии">
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="asExpert"> <span>Хочу участвовать как знаток</span>
+          </label>
+          <button class="btn primary" type="submit">Создать профиль</button>
+          <p class="muted">Роль можно поменять позже. Телезрители могут отправлять вопросы, знатоки участвуют в играх.</p>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel accent-panel">
+      <h2>Вход ведущего</h2>
+      <p class="muted">Ведущий — встроенный супер-пользователь. Регистрация не требуется. Используйте пароль, чтобы открыть кабинет с управлением вопросами, играми, новостями и опросами.</p>
+      <form class="stack" data-auth-form="host">
+        <label class="field">
+          <span>Пароль ведущего</span>
+          <input type="password" name="password" required>
+        </label>
+        <button class="btn ghost" type="submit">Войти в кабинет ведущего</button>
+        <p class="muted small">Пароль по умолчанию: <strong data-host-password>•••••••••••</strong></p>
+      </form>
+      <div class="pill-list">
+        <span class="pill">Контроль вопросов</span>
+        <span class="pill">Создание игр</span>
+        <span class="pill">Новости и опросы</span>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div>
+      <p class="muted">ЧГК Батуми — современный портал клуба. Доступен на десктопе и смартфонах.</p>
+      <small>Ведущий может менять роли пользователей, назначать капитанов и отслеживать статус вопросов.</small>
+    </div>
+    <div class="footer__links">
+      <a href="#" class="link">Политика конфиденциальности</a>
+      <a href="#" class="link">Поддержка</a>
+    </div>
+  </footer>
+</body>
+</html>

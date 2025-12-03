@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Личный кабинет — ЧГК Батуми</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="scripts/app.js" defer></script>
+</head>
+<body data-page="user">
+  <header class="topbar">
+    <div class="topbar__left">
+      <img src="https://logo-icons.com/cdn/shop/files/3809-logo-1739064201.739.svg?v=1739224665" class="brand__logo small recolor" alt="Логотип" />
+      <div>
+        <p class="eyebrow">ЧГК Батуми</p>
+        <h1>Личный кабинет</h1>
+      </div>
+    </div>
+    <div class="topbar__right">
+      <button class="btn ghost" data-action="logout">Выйти</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <nav class="nav">
+        <button class="nav__item active" data-section="profile">Профиль</button>
+        <button class="nav__item" data-section="questions">Мои вопросы</button>
+        <button class="nav__item" data-section="news">Новости и опросы</button>
+        <button class="nav__item" data-section="games">Игры</button>
+      </nav>
+      <div class="card card--glass" data-user-stat>
+        <p class="eyebrow">Статистика вопросов</p>
+        <div class="pill-grid" data-question-stats></div>
+      </div>
+    </aside>
+
+    <section class="content">
+      <section class="panel" data-section-panel="profile">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Настройки профиля</p>
+            <h2>Ваши данные и фото</h2>
+          </div>
+          <span class="pill" data-user-role></span>
+        </div>
+        <div class="grid grid--2 grid--gap-lg">
+          <div class="card">
+            <div class="avatar-editor">
+              <img data-avatar-preview class="avatar-preview" alt="Аватар" />
+              <div class="stack">
+                <label class="field">
+                  <span>Загрузить новое фото</span>
+                  <input type="file" accept="image/*" data-avatar-input>
+                </label>
+                <div class="controls" data-avatar-controls>
+                  <label class="field">
+                    <span>Масштаб</span>
+                    <input type="range" min="1" max="3" step="0.1" data-avatar-scale>
+                  </label>
+                  <label class="field">
+                    <span>Смещение X</span>
+                    <input type="range" min="-150" max="150" step="5" data-avatar-offset-x>
+                  </label>
+                  <label class="field">
+                    <span>Смещение Y</span>
+                    <input type="range" min="-150" max="150" step="5" data-avatar-offset-y>
+                  </label>
+                  <canvas data-avatar-canvas width="260" height="260"></canvas>
+                  <button class="btn" type="button" data-save-avatar>Сохранить кроп</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <form class="card stack" data-profile-form>
+            <label class="field">
+              <span>Имя</span>
+              <input type="text" name="name" required>
+            </label>
+            <label class="field">
+              <span>Email</span>
+              <input type="email" name="email" required>
+            </label>
+            <label class="field">
+              <span>Telegram</span>
+              <input type="text" name="telegram" required>
+            </label>
+            <label class="field">
+              <span>Сферы знаний (теги)</span>
+              <input type="text" name="tags" placeholder="история, спорт, дизайн">
+            </label>
+            <div class="pill-list" data-user-flairs></div>
+            <button class="btn primary" type="submit">Сохранить профиль</button>
+          </form>
+        </div>
+        <div class="card card--muted" data-user-meta></div>
+      </section>
+
+      <section class="panel hidden" data-section-panel="questions">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Отправка вопроса</p>
+            <h2>Сформулируйте вопрос для клуба</h2>
+          </div>
+          <div class="pill">Фото вопроса и ответа опциональны</div>
+        </div>
+        <form class="card stack" data-question-form>
+          <div class="grid grid--3 grid--gap-sm">
+            <label class="field">
+              <span>Ваше имя</span>
+              <input name="author" readonly>
+            </label>
+            <label class="field">
+              <span>Telegram</span>
+              <input name="telegram" readonly>
+            </label>
+            <label class="field">
+              <span>Email</span>
+              <input name="email" readonly>
+            </label>
+          </div>
+          <label class="field">
+            <span>Текст вопроса</span>
+            <textarea name="question" required rows="4" placeholder="Напишите текст вопроса"></textarea>
+          </label>
+          <div class="grid grid--2 grid--gap-sm">
+            <label class="field">
+              <span>Фото вопроса</span>
+              <input type="file" accept="image/*" name="questionImage">
+            </label>
+            <label class="field">
+              <span>Фото ответа</span>
+              <input type="file" accept="image/*" name="answerImage">
+            </label>
+          </div>
+          <label class="field">
+            <span>Правильный ответ</span>
+            <input type="text" name="answer" required>
+          </label>
+          <button class="btn primary" type="submit">Отправить вопрос</button>
+        </form>
+
+        <div class="card stack" data-question-list>
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Ваши вопросы</p>
+              <h3>Отслеживайте статусы и уведомления</h3>
+            </div>
+            <div class="pill-list">
+              <span class="pill pill--green">Одобрен</span>
+              <span class="pill pill--blue">В обработке</span>
+              <span class="pill pill--orange">Выбран на игру</span>
+            </div>
+          </div>
+          <div class="list" data-question-cards></div>
+        </div>
+      </section>
+
+      <section class="panel hidden" data-section-panel="news">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Лента клуба</p>
+            <h2>Новости и опросы</h2>
+          </div>
+        </div>
+        <div class="grid grid--2 grid--gap-sm">
+          <div class="card stack" data-news-feed></div>
+          <div class="card stack" data-polls></div>
+        </div>
+      </section>
+
+      <section class="panel hidden" data-section-panel="games">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Игры</p>
+            <h2>Ваши приглашения и роль</h2>
+          </div>
+        </div>
+        <div class="card stack" data-game-list></div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>
