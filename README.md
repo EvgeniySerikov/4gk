@@ -19,6 +19,11 @@ View your app in AI Studio: https://ai.studio/apps/drive/1FtELSOX9idfdUkauJgBhRP
 3. Run the app:
    `npm run dev`
 
+## Посмотреть превью
+
+- Быстрый локальный запуск: выполните `npm run dev` и откройте http://localhost:5173. В хэше URL доступны все пункты лендинга, включая вход для ведущего.
+- Предпросмотр собранной версии: выполните `npm run build && npm run preview` и откройте http://localhost:4173. Это покажет, как приложение выглядит после сборки.
+
 ## Admin access (ведущий)
 
 - На лендинге выберите пункт «Вход для Ведущего» или перейдите по хэшу `#admin` в URL.
