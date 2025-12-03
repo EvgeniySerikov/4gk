@@ -18,3 +18,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1FtELSOX9idfdUkauJgBhRP
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Admin access (ведущий)
+
+- На лендинге выберите пункт «Вход для Ведущего» или перейдите по хэшу `#admin` в URL.
+- Используйте пароль **`batumi-owl-stronghold`** (зашит в `config.ts`) для входа в кабинет ведущего.
+- После ввода правильного пароля откроется административная панель с управлением вопросами, играми, пользователями и рассылками.
